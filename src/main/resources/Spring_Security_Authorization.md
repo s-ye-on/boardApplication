@@ -1,5 +1,7 @@
 # warp 굳
 
+# 메서드 레벨 보안
+# Spring Security의 메서드 레벨 권한 제어
 # 특정 API에 역할별 권한 걸기 (예: ADMIN만 가능)
 이미 User 엔티티에 Role enum이 있고 (USER, ADMIN), </br>
 CustomUserDetails.getAuthorities() 에서 ROLE_USER, ROLE_ADMIN 으로 잘 변환해주고 있음
@@ -190,4 +192,194 @@ public void deletePost(Long postId, Long currentUserId) {
 - 권한이 안된다면 서비스까지 가지 못하니 성능이 더 좋을거라 예상 됨
 - 권한에 대해 만들면서 commentService에 deleteAllByUser라는 메서드(지금은 deleteAllByAdmin으로 변경)에 대해
     생각해볼 수 있어서 좋았음 악의적으로 사용할 수 있는 기능들에 대해 생각 할 수 있었음
-- 
+
+
+# Spring Security 세션 기반 로그인 
+Spring Security는 스프링 기반 애플리케이션의 인증(Authentication)과 인가(Authorization)를 처리하는 강력한 보안 프레임워크 </br>
+세션 기반 로그인은 웹에서 가장 전통적이고 널리 쓰이는 인증 방식이기도 함
+
+## 1. Spring Security 인증 구조 개념
+Spring Security는 다음 3가지를 중심으로 동작 : 
+### ✔ 1) Authentication(인증)
+"이 사용자가 진짜 누구인지 확인하는 과정"
+- 로그인 시 전달 받은 username/password가 DB의 유저와 일치하는지 확인하는 단계
+
+### ✔ 2) Authorization (인가)
+"이 사용자가 요청한 자원(페이지/기능)을 사용할 권리가 있는지 확인하는 과정"
+
+예: ROLE_ADMIN만 게시판 삭제 가능
+
+### ✔ 3) SecurityContext + Session (세션 저장)
+인증에 성공하면 Spring Security는 인증 정보를 Security Context에 저장하고 이 SecurityContext는 다시 세션에 저장
+</br>
+그래서 인증 이후에는 세션을 통해 로그인 상태가 유지되는 구조
+
+## 2. Spring Security 세션 로그인 전체 흐름
+```java
+[로그인 요청]
+    ↓
+UsernamePasswordAuthenticationFilter
+    ↓
+AuthenticationManager
+    ↓
+UserDetailsService (내가 구현)
+    ↓
+UserDetails (내가 구현한 User 정보 객체)
+    ↓
+인증 성공 → SecurityContext 저장 → 세션 저장
+    ↓
+클라이언트는 이후 JSESSIONID 쿠키를 통해 인증된 사용자로 인정됨
+```
+즉, 로그인 성공하면 세션에 인증 정보(SecurityContext)가 저장되고 </br>
+브라우저가 JSESSIONID 쿠키를 자동으로 관리하면서 로그인 상태 유지되는 구조
+
+## 3. 세션 기반 인증이란?
+### 🔶 핵심 요약
+- 인증 성공하면 세션에 사용자 정보가 저장
+- 클라이언트는 JSESSIONID 쿠키를 계속 보내며 로그인 상태 유지 
+- 서버는 세션 저장소(메모리, Redis 등)에 세션을 저장
+
+### 🔶특징
+| 항목           | 설명                     |
+|--------------|------------------------|
+| 상태(Stateful) | 서버가 세션을 직접 저장함         |
+| 서버 부하        | 유저 수가 많아지면 세션 저장 공간 필요 |
+| 보안 수준        | 서버 관리에 따라 안정적          |
+| 모바일, SPA     | 토큰 기반보다 불편할 수 있음       |
+
+## 4. Security에서 로그인 인증 과정 상제
+로그인 시 /login POST 요청이 들어오면 `UsernamePasswordAuthenticationFilter`가 자동으로 동작
+
+### 1) UsernamePasswordAuthenticationFilter
+- 로그인  폼에서 username / password 추출 (여기서 username은 로그인 시 사용되는 ID)
+- Authentication 객체 생성하여 AuthenticationManager에게 전달
+#### 추가 
+- Spring Security가 기본 구현체를 자동으로 제공
+- SecurityConfig에서 `formLogin()`을 쓰는 순간 SpringSecurity가 자동으로 UsernamePasswordAuthenticationFilter를 등록해서 사용
+
+### 2) AuthenticationManager
+- 적절한 AuthenticationProvider 선택
+- 기본은 DaoAuthenticationProvider
+
+#### 추가 : AuthenticationManager도 만들지 않았지만 왜 되는걸까?
+스프링 부트는 다음 조건이 있으면 AuthenticationManager를 자동 구성 해줌 : 
+##### ✔ UserDetailsService 구현체를 제공함
+##### ✔ PasswordEncoder 빈을 제공함 
+- 이 두개가 있다면 Spring Boot Security는 자동으로 : 
+  - DaoAuthenticationProvider 등록
+  - AuthenticationManager 생성
+  - 이것을 SecurityFilterChain에 연결
+
+### 3) UserDetailsService (개발자가 구현)
+```java
+package me.boardApp.domain.user;
+
+import lombok.RequiredArgsConstructor;
+import me.boardApp.global.exception.ExceptionCode;
+import me.boardApp.global.exception.UserException;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.stereotype.Service;
+
+@Service
+@RequiredArgsConstructor
+public class CustomUserDetailsService implements UserDetailsService {
+
+	private final UserRepository userRepository;
+
+	// username email 사용(로그인 ID를 말하는 것임)
+	@Override
+	public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+		// username에는 /login 폼에서 입력한 값이 들어옴
+		User user = userRepository.findByEmail(username)
+			.orElseThrow(()-> new UserException(ExceptionCode.NOT_FOUND_USER));
+
+		return new CustomUserDetails(user);
+	}
+}
+
+```
+### 4) PasswordEncoder
+DB password 비교할 때 반드시 필요
+
+### 5) 인증 성공
+- SecurityContext에 Authentication 저장
+- Session에 SecurityContext 저장
+- JSESSIONID 쿠키 발행
+
+이제 로그인 유지!
+
+## 5. Security 기본 설정 예시 
+스프링 6 기준 : 
+```java
+@Bean
+public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+
+    http
+        .csrf(csrf -> csrf.disable())
+        .authorizeHttpRequests(auth -> auth
+            .requestMatchers("/login", "/signup").permitAll()
+            .anyRequest().authenticated()
+        )
+        .formLogin(form -> form
+            .loginPage("/login")
+            .defaultSuccessUrl("/home", true)
+        )
+        .logout(logout -> logout
+            .logoutUrl("/logout")
+            .logoutSuccessUrl("/login")
+        );
+
+    return http.build();
+}
+```
+나는 이렇게 했다 
+```java
+@Bean
+	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+		http
+			.csrf(AbstractHttpConfigurer::disable) // 일단 개발/테스트용으로 csrf 끄기
+			.authorizeHttpRequests(auth -> auth
+				.requestMatchers(
+					"/", "/css/**", "/js/**", "/images/**",
+					"/h2-console/**", "/users/join", // 회원가입 API는 인증 없이 허용
+					"/users/join-form") // 폼 회원가입 처리
+					.permitAll() // 이 URL들은 누구나 접근 가능
+					.anyRequest().authenticated() // 나머지는 로그인 필요
+				)
+			.formLogin(form -> form
+			// 기본 로그인 폼 사용
+				// .loginPage("/login") loginPage 지정 안하면, Spring 기본 로그인 페이지(/login) 자동 제공
+				.loginPage("/login")
+				.defaultSuccessUrl("/boards", true)
+				.permitAll())
+			.logout(Customizer.withDefaults()); // 로그인 성공 시 /boards 로 강제 리다이렉트
+
+		return http.build();
+	}
+```
+## 6. 세션 기반 인증의 장점 & 단점
+### ✔ 장점
+- 구현 간단
+- 스프링이 거의 다 자동 처리
+- 서버가 인증 상태를 직접 관리 -> 안정적
+- 전통적인 웹 서비스에서는 여전히 가장 많이 사용
+
+### ✔ 단점 
+- 서버 메모리 사용 증가
+- 서버가 여러 대일 때 세션 공유 필요 -> Redis 등 필요
+- 모바일/SPA 환경에서는 불편 (토큰이 더 적합)
+
+## 7. JWT와 세션의 차이
+| 구분       | 세션           | JWT                    |
+|----------|--------------|------------------------|
+| 인증 정보 저장 | 서버 메모리/Redis | 클라이언트(LocalStorage-쿠키) |
+| 서버 확장성   | 세션 공유 필요     | 확장 쉬움                  |
+| 보안       | 서버가 관리 -> 안정 | 탈취되면 위험                |
+| 로그아웃     | 서버에서 세션 제거   | 블랙리스트 필요               |
+| 적합한 서비스  | 웹 기반         | 모바일·API 서버             |
+
+## ✅ 마무리
+**Spring Security 기본 로그인은 세션 기반 구조이며, 인증 성공 시 SecurityContext가 세션에 저장되고 JSESSIONID로 상태가 유지되는 방식이다.</br>**
+스프링이 거의 모든 인증 절차를 자동 처리해주므로, 개발자는 UserDetailsService 구현과 Security 설정만 해주면 동작한다
