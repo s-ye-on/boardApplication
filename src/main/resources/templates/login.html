@@ -5,40 +5,80 @@
     <title>로그인</title>
 </head>
 <body>
-<h1>로그인</h1>
+<h1>로그인 (JWT)</h1>
 
-<form method="post" action="/login">
+<form id="login-form">
     <div>
-        <label>닉네임(아이디):
-            <input type="text" name="username"/>
+        <label>이메일:
+            <input type="email" name="email" required />
         </label>
     </div>
     <div>
         <label>비밀번호:
-            <input type="password" name="password"/>
+            <input type="password" name="password" required />
         </label>
     </div>
     <button type="submit">로그인</button>
 </form>
+
+<p id="login-error" style="color: red;"></p>
 
 <hr>
 
 <h2>회원가입</h2>
 <form method="post" action="/users/join-form">
     <div>
-        <label>이름: <input type="text" name="realName"/></label>
+        <label>이름: <input type="text" name="realName" required /></label>
     </div>
     <div>
-        <label>닉네임: <input type="text" name="nickName"/></label>
+        <label>닉네임: <input type="text" name="nickName" required /></label>
     </div>
     <div>
-        <label>이메일: <input type="email" name="email"/></label>
+        <label>이메일: <input type="email" name="email" required /></label>
     </div>
     <div>
-        <label>비밀번호: <input type="password" name="password"/></label>
+        <label>비밀번호: <input type="password" name="password" required /></label>
     </div>
     <button type="submit">회원가입</button>
 </form>
+
+<script>
+    // 로그인 폼을 직접 /auth/login 으로 AJAX 호출해서 JWT 받기
+    document.getElementById('login-form').addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        const form = e.target;
+        const email = form.email.value;
+        const password = form.password.value;
+        const errorEl = document.getElementById('login-error');
+        errorEl.textContent = '';
+
+        try {
+            const res = await fetch('/auth/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ email, password })
+            });
+
+            if (!res.ok) {
+                const text = await res.text();
+                errorEl.textContent = '로그인 실패: ' + text;
+                return;
+            }
+
+            const data = await res.json();
+            // accessToken을 브라우저에 저장 (간단히 localStorage 사용)
+            localStorage.setItem('accessToken', data.accessToken);
+            // 로그인 후 게시판 페이지로 이동
+            window.location.href = '/boards.html';
+        } catch (err) {
+            console.error(err);
+            errorEl.textContent = '로그인 중 오류가 발생했습니다.';
+        }
+    });
+</script>
 
 </body>
 </html>

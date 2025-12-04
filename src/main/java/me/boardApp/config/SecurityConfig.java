@@ -1,11 +1,15 @@
 package me.boardApp.config;
 
+import me.boardApp.auth.jwt.JwtAuthenticationFilter;
+import me.boardApp.auth.jwt.JwtTokenProvider;
+import me.boardApp.domain.user.UserRepository;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -13,6 +17,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 // 환경설정(Bean 등록)을 담당하는 클래스 이름을 ~config라고 지음
 // @Configuration -> 스프링 설정 클래스임을 알려주는 어노테이션
@@ -25,27 +30,35 @@ public class SecurityConfig {
 		return new BCryptPasswordEncoder();
 	}
 
+	@Bean
+	public JwtAuthenticationFilter jwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider,
+																												 UserRepository userRepository) {
+		return new JwtAuthenticationFilter(jwtTokenProvider, userRepository);
+	}
+
 	// 1. 어떤 URL에 보안 걸지 & 로그인 방식 정의
 	@Bean
-	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+	public SecurityFilterChain securityFilterChain(HttpSecurity http,
+																								 JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
 		http
-			.csrf(AbstractHttpConfigurer::disable) // 일단 개발/테스트용으로 csrf 끄기
+			.csrf(AbstractHttpConfigurer::disable)
+			.sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+			.formLogin(AbstractHttpConfigurer::disable)
+			.logout(AbstractHttpConfigurer::disable)
 			.authorizeHttpRequests(auth -> auth
 				.requestMatchers(
-					"/", "/css/**", "/js/**", "/images/**",
-					"/h2-console/**", "/users/join", // 회원가입 API는 인증 없이 허용
-					"/users/join-form") // 폼 회원가입 처리
-//					"/users/login") // (지금 API용 login도 쓰고 있다면)
-					.permitAll() // 이 URL들은 누구나 접근 가능
-					.anyRequest().authenticated() // 나머지는 로그인 필요
-				)
-			.formLogin(form -> form
-			// 기본 로그인 폼 사용
-				// .loginPage("/login") loginPage 지정 안하면, Spring 기본 로그인 페이지(/login) 자동 제공
-				.loginPage("/login")
-				.defaultSuccessUrl("/boards", true)
-				.permitAll())
-			.logout(Customizer.withDefaults()); // 로그인 성공 시 /boards 로 강제 리다이렉트
+					"/",
+					"/login",			// 로그인 화면
+					"/users/join",		//JSON 회원 가입
+					"users/join-form",	// 폼 회원 가입
+					"/auth/login",		// JWT 로그인 API
+					"/boards.html",
+					"/h2-console/**",
+					"/css/**",
+					"/js/**").permitAll()
+				.anyRequest().authenticated()
+			)
+			.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
 		return http.build();
 	}

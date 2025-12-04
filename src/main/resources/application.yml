@@ -16,3 +16,9 @@ spring:
   h2:
     console:
       enabled: true
+
+
+app:
+  jwt:
+    secret: very-secret-jwt-key-change-me-please-very-long
+    expiration-seconds: 3600 # 1시간
