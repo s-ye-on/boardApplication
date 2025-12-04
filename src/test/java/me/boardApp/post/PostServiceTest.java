@@ -206,7 +206,7 @@ public class PostServiceTest {
 		PostRequest.Update updateRequest = new PostRequest.Update("얍얍", "1234", "(수정) 테스트 글" ,"(수정) 본문");
 
 		//when
-		PostUpdateResponse updateResponse = postService.updatePost(createResponse.id(), updateRequest);
+		PostUpdateResponse updateResponse = postService.update(createResponse.id(), updateRequest);
 
 		//then
 		assertThat(updateResponse)
@@ -224,15 +224,15 @@ public class PostServiceTest {
 
 		//when
 		//then
-		assertThatThrownBy(()-> postService.updatePost(1234L, updateRequest1))
+		assertThatThrownBy(()-> postService.update(1234L, updateRequest1))
 			.isInstanceOf(IllegalArgumentException.class)
 				.hasMessageContaining("게시글이 존재하지 않습니다");
 
-		assertThatThrownBy(()-> postService.updatePost(createResponse.id(), updateRequest2))
+		assertThatThrownBy(()-> postService.update(createResponse.id(), updateRequest2))
 			.isInstanceOf(IllegalArgumentException.class)
 				.hasMessageContaining("비밀번호가 일치하지 않습니다");
 
-		assertThatThrownBy(()-> postService.updatePost(createResponse.id(), updateRequest3))
+		assertThatThrownBy(()-> postService.update(createResponse.id(), updateRequest3))
 			.isInstanceOf(IllegalArgumentException.class)
 			.hasMessageContaining("비밀번호가 일치하지 않습니다");
 	}

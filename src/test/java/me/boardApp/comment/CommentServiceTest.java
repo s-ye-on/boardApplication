@@ -159,7 +159,7 @@ public class CommentServiceTest {
 
 		//when
 		CommentRequest.Update updateRequest = new CommentRequest.Update("얍얍", "1234", "(수정) 댓글");
-		commentService.updateComment(createResponse.id(), updateRequest);
+		commentService.update(createResponse.id(), updateRequest);
 
 		//then
 		assertThat(commentService.readByCommentId(createResponse.id()))
@@ -180,17 +180,17 @@ public class CommentServiceTest {
 
 		//then
 		// 댓글 id 틀림
-		assertThatThrownBy(()->commentService.updateComment(1234L, updateRequest1))
+		assertThatThrownBy(()->commentService.update(1234L, updateRequest1))
 			.isInstanceOf(CommentException.class)
 			.hasMessageContaining(ExceptionCode.NOT_FOUND_COMMENT.getMessage());
 
 		// 댓글 작성자 틀림
-		assertThatThrownBy(()->commentService.updateComment(createResponse.id(), updateRequest2))
+		assertThatThrownBy(()->commentService.update(createResponse.id(), updateRequest2))
 			.isInstanceOf(CommentException.class)
 			.hasMessageContaining(ExceptionCode.NOT_FOUND_NICKNAME.getMessage());
 
 		// 댓글 작성자 비밀번호 틀림
-		assertThatThrownBy(()->commentService.updateComment(createResponse.id(), updateRequest3))
+		assertThatThrownBy(()->commentService.update(createResponse.id(), updateRequest3))
 			.isInstanceOf(CommentException.class)
 			.hasMessageContaining(ExceptionCode.INVALID_PASSWORD.getMessage());
 	}
@@ -257,7 +257,7 @@ public class CommentServiceTest {
 		commentRepository.flush();
 		//when
 		CommentRequest.Delete deleteRequest = new CommentRequest.Delete("얍얍", "1234");
-		commentService.deleteAllByWriter(deleteRequest);
+		commentService.deleteAllByAdmin(deleteRequest);
 
 		//then
 		assertThat(commentRepository.findAll()).hasSize(0);
@@ -272,7 +272,7 @@ public class CommentServiceTest {
 	void 게시글_삭제시_댓글_삭제_성공(){
 		//given
 		CommentRequest.Create createRequest = new CommentRequest.Create(user.getNickname(), "댓글");
-		CommentCreateResponse createResponse = commentService.create(testPostId, createRequest);
+		CommentResponse.Create createResponse = commentService.create(testPostId, createRequest);
 
 		//when
 		postRepository.delete(postRepository.findById(testPostId).orElseThrow());

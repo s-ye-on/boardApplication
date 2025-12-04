@@ -22,6 +22,7 @@ public class UserService {
 	private final PasswordEncoder passwordEncoder;
 	/// todo : user response 만들기
 	/// 지금은 user 엔티티 자체를 반환해서 비밀번호나 개인정보가 보여질 위험이 있음
+	/// 이거 사실 userDetails로 반환하면 되지 않나?
 
 	public void join(UserRequest.Create request) {
 		// 가입 이력 여부 확인
@@ -36,7 +37,7 @@ public class UserService {
 		String encodedPassword = passwordEncoder.encode(request.password());
 
 		User user = new User(
-			request.name(),
+			request.realName(),
 			request.nickName(),
 			encodedPassword,
 			request.email()
@@ -63,6 +64,8 @@ public class UserService {
 		user.activate(request.nickname());
 	}
 
+	/// todo : 여기는 아이디를 이메일 형식으로 만들어놨는데, 닉네임을 아이디로 쓰기로 하지 않았나? 하나로 통일해야함
+	/// todo : 여기서 아이디가 틀렸을 경우와 비밀번호가 틀렸을 경우가 예외가 다르게 나가는데 이러면 보안에 취약할 거라 생각 듬
 	public UserResponse.Login login(UserRequest.Login request) {
 		User user = userRepository.findByEmail(request.email())
 			.orElseThrow(() -> new UserException(ExceptionCode.NOT_FOUND_USER));
@@ -90,40 +93,42 @@ public class UserService {
 //	public List<Comment> readComments(String nickName) {}
 // -> 내 생각에 게시글이나 댓글에 대한 책임은 각자의 service에서 하는게 맞는 것 같음
 
-	public void updateNickname(UserRequest.UpdateNickname request) {
-		User user = userRepository.findByNickname(request.presentNickname())
-			.orElseThrow(() -> new UserException(ExceptionCode.NOT_FOUND_NICKNAME));
+	public void updateNickname(UserRequest.UpdateNickname request, Long currentUserId) {
+		User currentUser = userRepository.findById(currentUserId)
+			.orElseThrow(() -> new UserException(ExceptionCode.NOT_FOUND_USER));
 
+		//현재 로그인 유저의 비밀번호 검증
+		currentUser.validatePassword(request.password(), passwordEncoder);
+
+		// 닉네임 중복 체크
 		userRepository.findByNickname(request.newNickName())
 			.orElseThrow(() -> new UserException(ExceptionCode.DUPLICATE_NICKNAME));
 
-		user.validatePassword(request.password(), passwordEncoder);
-
-		user.updateNickname(request.newNickName());
+		currentUser.updateNickname(request.newNickName());
 	}
 
-	public void updatePassword(UserRequest.UpdatePassword request) {
-		User user = userRepository.findByNickname(request.nickname())
-			.orElseThrow(() -> new UserException(ExceptionCode.NOT_FOUND_NICKNAME));
+	public void updatePassword(UserRequest.UpdatePassword request, Long currentUserId) {
+		User currentUser = userRepository.findById(currentUserId)
+			.orElseThrow(() -> new UserException(ExceptionCode.NOT_FOUND_USER));
 
-		user.validatePassword(request.presentPassword(), passwordEncoder);
+		currentUser.validatePassword(request.presentPassword(), passwordEncoder);
 
 		String encodedPassword = passwordEncoder.encode(request.newPassword());
-
-		user.updatePassword(encodedPassword);
+		currentUser.updatePassword(encodedPassword);
 	}
 
-	public void updateEmail(UserRequest.UpdateEmail request) {
-		User user = userRepository.findByNickname(request.nickname())
-			.orElseThrow(() -> new UserException(ExceptionCode.NOT_FOUND_NICKNAME));
+	public void updateEmail(UserRequest.UpdateEmail request, Long currentUserId) {
+		User user = userRepository.findById(currentUserId)
+			.orElseThrow(() -> new UserException(ExceptionCode.NOT_FOUND_USER));
 
 		user.validatePassword(request.password(), passwordEncoder);
+		/// 나중에 email 중복 체크 넣어줄 수도 있음
 
 		user.updateEmail(request.newEmail());
 	}
 
-	public void delete(UserRequest.Delete request) {
-		User user = userRepository.findByNickname(request.nickname())
+	public void delete(UserRequest.Delete request, Long currentUserId) {
+		User user = userRepository.findById(currentUserId)
 			.orElseThrow(() -> new UserException(ExceptionCode.NOT_FOUND_NICKNAME));
 
 		user.validateDelete(request, passwordEncoder);

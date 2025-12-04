@@ -2,6 +2,7 @@ package me.boardApp.domain.comment.service;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import me.boardApp.authorization.AuthorizationService;
 import me.boardApp.domain.comment.Comment;
 import me.boardApp.domain.comment.dto.CommentResponse;
 import me.boardApp.global.CommonService;
@@ -25,13 +26,15 @@ public class CommentService {
 	private final CommentRepository commentRepository;
 	private final PasswordEncoder passwordEncoder;
 	private final CommonService commonService;
+	private final AuthorizationService authorizationService;
 
 	// Create
-	public CommentResponse.Create create(Long postId, CommentRequest.Create request) {
+	/// todo : comment도 마찬가지로 지금 닉네임 비밀번호만 일치 시키면 타인의 이름으로 글 쓸 수 있음
+	public CommentResponse.Create create(Long postId, CommentRequest.Create request, Long currentUserId) {
 		Post post = commonService.getPostById(postId);
 		post.validateCanAddComment();
 
-		User writer = commonService.getUserByNickname(request.writer());
+		User writer = commonService.getUserById(currentUserId);
 
 		Comment comment = new Comment(
 			post,
@@ -42,10 +45,10 @@ public class CommentService {
 		post.commented(comment);
 		commentRepository.save(comment);
 
-		return mapToCommentCreateResponse(comment);
+		return toCreateResponse(comment);
 	}
 
-	public CommentResponse.Create mapToCommentCreateResponse(Comment comment) {
+	private CommentResponse.Create toCreateResponse(Comment comment) {
 		return new CommentResponse.Create(
 			comment.getId(),
 			comment.getUser().getNickname(),
@@ -65,14 +68,14 @@ public class CommentService {
 		// page로 전환
 		// 한 유저가 어떤 한 게시글에 단 댓글을 보여주는거니까 List로 받아주는게 더 가시성이 있어보이기도 하고.. 고민
 		return commentRepository.findAllByUserNicknameAndPostId(writerName, postId, pageable)
-			.map(this::mapToCommentReadResponse);
+			.map(this::toReadResponse);
 	}
 
 	public CommentResponse.Read readByCommentId(Long commentId) {
 		Comment comment = commentRepository.findById(commentId)
 			.orElseThrow(() -> new CommentException(ExceptionCode.NOT_FOUND_COMMENT));
 
-		return mapToCommentReadResponse(comment);
+		return toReadResponse(comment);
 	}
 
 	//Slice로 조회
@@ -86,11 +89,11 @@ public class CommentService {
 		List<Comment> comments = commentRepository.findAllByPostIdOrderByCreatedDateAsc(post.getId());
 
 		return comments.stream()
-			.map(this::mapToCommentReadResponse)
+			.map(this::toReadResponse)
 			.toList();
 	}
 
-	public CommentResponse.Read mapToCommentReadResponse(Comment comment) {
+	private CommentResponse.Read toReadResponse(Comment comment) {
 		return new CommentResponse.Read(
 			comment.getId(),
 			comment.getUser().getNickname(),
@@ -101,19 +104,25 @@ public class CommentService {
 	}
 
 	// Update
-	public CommentResponse.Update updateComment(Long commentId, CommentRequest.Update request) {
+	public CommentResponse.Update update(Long commentId, CommentRequest.Update request, Long currentUserId) {
 		Comment target = commentRepository.findById(commentId)
 			.orElseThrow(()-> new CommentException(ExceptionCode.NOT_FOUND_COMMENT));
 
-		User writer = commonService.getUserByNickname(request.writer());
+		User writer = target.getUser();
+		User currentUser = commonService.getUserById(currentUserId);
 
-		writer.validatePassword(request.password(), passwordEncoder);
+		// 1. 작성자 본인인지 확인 (관리자는 수정 불가 정책)
+		authorizationService.checkOwner(writer, currentUser);
 
+		// 2. 비밀번호 재확인 (현재 유저 기준으로)
+		currentUser.validatePassword(request.password(), passwordEncoder);
+
+		// 3. 실제 내용 수정
 		target.update(request.comment());
-		return mapToCommentUpdateResponse(target);
+		return toUpdateResponse(target);
 	}
 
-	public CommentResponse.Update mapToCommentUpdateResponse(Comment comment) {
+	private CommentResponse.Update toUpdateResponse(Comment comment) {
 		return new CommentResponse.Update(
 			comment.getId(),
 			comment.getUser().getNickname(),
@@ -124,30 +133,53 @@ public class CommentService {
 	}
 
 	// Delete
-	public void deleteByCommentId(Long id, CommentRequest.Delete request) {
+	public void deleteByCommentId(Long id, CommentRequest.Delete request, Long currentUserId) {
 		Comment target = commentRepository.findById(id)
 			.orElseThrow(()-> new CommentException(ExceptionCode.NOT_FOUND_COMMENT));
 
-		User writer = commonService.getUserByNickname(request.writer());
+		User writer = target.getUser();
 
-		writer.validatePassword(request.password(), passwordEncoder);
+		//1. 현재 로그인한 유저 조회
+		User currentUser = commonService.getUserById(currentUserId);
 
+		// 2. 도메인 규칙 : 작성자 본인 or 관리자 확인
+		authorizationService.checkOwnerOrAdmin(writer, currentUser);
+
+		// 3. 현재 로그인한 유저 기반 인증
+		currentUser.validatePassword(request.password(), passwordEncoder);
+
+		// 4. 삭제
 			// Post쪽의 컬렉션에서만 삭제해줘도 orphanRemoval이 걸려있어서 commentRepository에 있는 comment도 자동으로 삭제 됨
 //		commentRepository.delete(target);
+		///  todo : 엔티티쪽에 헬퍼 메서드를 둬서 양방향 연관관계 정리하는거 만들어주자 (target.removeFromRelations())
+		/// 이렇게 하면 서비스 코드에서 연관관계에 대해 세부 구현(user, post 컬렉션) 을 몰라도 됨
 		// Post쪽 컬렉션에서 삭제
 		target.getPost().getComments().remove(target);
-		commentRepository.flush();
-
 		// User쪽 컬렉션에서도 삭제
 		target.getUser().getComments().remove(target);
+
+		///  flush도 지금 테스트때문에 존재 나중에 삭제
+		commentRepository.flush();
+
 	}
 
-	public void deleteAllByWriter(CommentRequest.Delete request) {
+	// 수정하다 든 생각이 여긴 request에 어떤 유저에 대한 정보가 담겨야하는데
+	// 이 경우 일반 유저가 타인의 글을 다 지우는 공격 루트가 될 것 같음
+	// 특정 사용자의 댓글을 다 지운다? 이거는 위험해보임
+	// 관리자만 접근할 수 있게 @PreAuthorization ADMIN만 주는게 맞을 것 같음
+	// 여기서 또 고민이 생기는데 CommentService에 관리자 기능과 일반 유저 기능이 혼재하는게 맞나?
+	//-> 일단 도메인 기준으로 나누는게 먼저임.
+	// 누가 이 기능을 쓸 수 있냐는 서비스 레벨보다 컨트롤러 + 시큐리티(@PreAuthentication)에서 역할 분기로 처리하는게 맞을 것 같음
+	// 관리자용 댓글 관리 기능이 커진다면 그땐 AdminCommentService로 나누자
+	public void deleteAllByAdmin(CommentRequest.DeleteByAdmin request, Long currentUserId) {
 		User writer = commonService.getUserByNickname(request.writer());
 
-		List<Comment> allComments = commentRepository.findAllByUserNickname(request.writer());
+		User currentUser = commonService.getUserById(currentUserId);
+		authorizationService.checkAdmin(currentUser);
 
-		writer.validatePassword(request.password(), passwordEncoder);
+		List<Comment> allComments = commentRepository.findALlByUserId(writer.getId());
+
+		currentUser.validatePassword(request.password(), passwordEncoder);
 
 		for(Comment comment : allComments) {
 			// db에서 지워주는게 아니라 컬렉션에서 지워주면 부모(Post)에서 지워주면 orphanRemoval로 깔끔함

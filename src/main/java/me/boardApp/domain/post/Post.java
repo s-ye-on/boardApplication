@@ -57,7 +57,7 @@ public class Post extends BaseEntity {
 	//명시적 생성자
 	// JPA 엔티티를 DB에서 불러올 때 1. 리플렉션으로 기본 생성자를 통해 객체를 만듬
 	// 2. DB 컬럼 값을 필드에 세팅
-	// -> JPA 엔티티는 "반드시 매개변 없는 생성자(기본 생성자)가 있어야 함
+	// -> JPA 엔티티는 "반드시 매개변수 없는 생성자(기본 생성자)가 있어야 함
 	// 그걸 이제 @NoArgsConstructor(access = AccessLevel.PROTECTED) 이게 해줌
 	public Post(Board board, User user , String title, String text) {
 		this.board = board;

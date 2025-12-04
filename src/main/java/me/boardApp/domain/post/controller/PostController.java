@@ -4,13 +4,15 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import me.boardApp.domain.post.dto.PostResponse;
 import me.boardApp.domain.post.service.PostService;
+import me.boardApp.domain.user.CustomUserDetails;
 import me.boardApp.global.dto.request.PostRequest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,16 +23,20 @@ import java.util.List;
 public class PostController {
 	private final PostService postService;
 
+	@PreAuthorize("hasRole('USER')")
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
-	public PostResponse.Create createPost(@RequestBody @Valid PostRequest.Create request) {
-		return postService.create(request);
+	public PostResponse.Create createPost(@RequestBody @Valid PostRequest.Create request,
+																				@AuthenticationPrincipal CustomUserDetails userDetails) {
+		return postService.create(request, userDetails.getId());
 	}
 
+	@PreAuthorize("hasRole('ADMIN')")
 	@PostMapping("/notices")
 	@ResponseStatus(HttpStatus.CREATED)
-	public PostResponse.Create createNotice(@RequestBody @Valid PostRequest.Create request) {
-		return postService.createNotice(request);
+	public PostResponse.Create createNotice(@RequestBody @Valid PostRequest.Create request,
+																					@AuthenticationPrincipal CustomUserDetails userDetails) {
+		return postService.createNotice(request, userDetails.getId());
 	}
 
 	// 오프셋 기반 페이징 : GET /boards/{boardId}/posts
@@ -92,21 +98,25 @@ public class PostController {
 		return postService.readByTitle(title, pageable);
 	}
 
+	@PreAuthorize("hasRole('USER')")
 	@PatchMapping("/{id}")
 	@ResponseStatus(HttpStatus.OK)
-	public PostResponse.Update updatePost(
+	public PostResponse.Update update(
 		@PathVariable Long id,
-		@RequestBody @Valid PostRequest.Update request
+		@RequestBody @Valid PostRequest.Update request,
+		@AuthenticationPrincipal CustomUserDetails userDetails
 	) {
-		return postService.updatePost(id, request);
+		return postService.update(id, request, userDetails.getId());
 	}
 
+	@PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
 	@DeleteMapping("/{id}")
 	@ResponseStatus(HttpStatus.NO_CONTENT) // 삭제 성공, body 없음
 	public void delete(
 		@PathVariable Long id,
-		@RequestBody @Valid PostRequest.Delete postDeleteRequest
+		@RequestBody @Valid PostRequest.Delete postDeleteRequest,
+		@AuthenticationPrincipal CustomUserDetails userDetails
 	) {
-		postService.delete(id, postDeleteRequest);
+		postService.delete(id, postDeleteRequest, userDetails.getId());
 	}
 }

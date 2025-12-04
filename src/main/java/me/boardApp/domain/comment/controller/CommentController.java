@@ -4,12 +4,15 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import me.boardApp.domain.comment.dto.CommentResponse;
 import me.boardApp.domain.comment.service.CommentService;
+import me.boardApp.domain.user.CustomUserDetails;
 import me.boardApp.global.dto.request.CommentRequest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -20,13 +23,15 @@ import java.util.List;
 public class CommentController {
 	private final CommentService commentService;
 
+	@PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
 	public CommentResponse.Create create(
 		@RequestParam Long postId, // ?key=value 형식으로 전달
-		@RequestBody @Valid CommentRequest.Create request
+		@RequestBody @Valid CommentRequest.Create request,
+		@AuthenticationPrincipal CustomUserDetails userDetails
 	) {
-		return commentService.create(postId, request);
+		return commentService.create(postId, request, userDetails.getId());
 	}
 
 	@GetMapping("/{id}")
@@ -57,27 +62,35 @@ public class CommentController {
 		return commentService.readAllByPostId(postId);
 	}
 
+	// 관리자가 댓글 수정할 이유는 없을 것 같음 문제를 일으킨걸 삭제했으면 삭제했지..
+	@PreAuthorize("hasRole('USER')")
 	@PatchMapping("/{id}")
 	public CommentResponse.Update updateComment(
 		@PathVariable Long id,
-		@RequestBody @Valid CommentRequest.Update commentUpdateRequest
+		@RequestBody @Valid CommentRequest.Update commentUpdateRequest,
+		@AuthenticationPrincipal CustomUserDetails userDetails
 	) {
-		return commentService.updateComment(id, commentUpdateRequest);
+		return commentService.update(id, commentUpdateRequest, userDetails.getId());
 	}
 
 	// URL의 {id}로 삭제할 리소스(댓글)를 명확히 식별
 	// Body(commentDeleteRequestById)에는 삭제 검증용 데이터(작성자, 비밀번호 등)을 담을 수 있음
 	// -> 리소스 식별은 PathVariable, 추가적인 검증 데이터는 Body -> 깔끔!
+	@PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
 	@DeleteMapping("/{id}")
 	public void deleteById(
 		@PathVariable Long id,
-		@RequestBody @Valid CommentRequest.Delete commentDeleteRequest
+		@RequestBody @Valid CommentRequest.Delete commentDeleteRequest,
+		@AuthenticationPrincipal CustomUserDetails userDetails
 	) {
-		commentService.deleteByCommentId(id, commentDeleteRequest);
+		commentService.deleteByCommentId(id, commentDeleteRequest, userDetails.getId());
 	}
 
+	// 관리자 기능으로 막아서 일반 유저가 악용 못하게 막음
+	@PreAuthorize("hasRole('ADMIN')")
 	@DeleteMapping
-	public void deleteAllByWriter(@RequestBody @Valid CommentRequest.Delete commentDeleteRequest) {
-		commentService.deleteAllByWriter(commentDeleteRequest);
+	public void deleteAllByWriter(@RequestBody @Valid CommentRequest.DeleteByAdmin commentDeleteRequest,
+																@AuthenticationPrincipal CustomUserDetails userDetails) {
+		commentService.deleteAllByAdmin(commentDeleteRequest, userDetails.getId());
 	}
 }

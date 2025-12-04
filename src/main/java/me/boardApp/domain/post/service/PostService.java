@@ -2,6 +2,7 @@ package me.boardApp.domain.post.service;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import me.boardApp.authorization.AuthorizationService;
 import me.boardApp.domain.board.Board;
 import me.boardApp.domain.notice.Notice;
 import me.boardApp.domain.post.dto.PostResponse;
@@ -27,16 +28,21 @@ public class PostService {
 	private final PostRepository postRepository;
 	private final PasswordEncoder passwordEncoder;
 	private final CommonService commonService;
+	private final AuthorizationService authorizationService;
 
 	// Create
-	public PostResponse.Create create(PostRequest.Create request) {
+	///  todo : 지금 create도 보면 타인의 닉네임과 비밀번호를 안다면 타인 이름으로 글을 올리 수 있음
+	/// spring security를 이용해 해결해보자
+	/// 관리자의 게시판 개입을 최소화하기 위해 관리자 권한으로는 글 못쓰게 막아둠
+	public PostResponse.Create create(PostRequest.Create request, Long currentUserId) {
 		Board board = commonService.getBoardById(request.boardId());
 
-		User writer =  commonService.getUserByNickname(request.nickname());
+		User currentUser =  commonService.getUserById(currentUserId);
+		authorizationService.checkUser(currentUser);
 
 		Post post = new Post(
 			board,
-			writer,
+			currentUser,
 			request.title(),
 			request.text()
 		);
@@ -49,20 +55,19 @@ public class PostService {
 			post.getId(),
 			board.getName(),
 			post.getTitle(),
-			writer.getNickname()
+			currentUser.getNickname()
 		);
 	}
 
-	/// todo: 관리자인지 확인을 지금 commonService에서 하고 있지만 AuthService로 옮기면 어떨까 생각
-	public PostResponse.Create createNotice(PostRequest.Create request) {
+	public PostResponse.Create createNotice(PostRequest.Create request, Long currentUserId) {
 		Board board = commonService.getBoardById(request.boardId());
-		User writer =  commonService.getUserByNickname(request.nickname());
+		User currentUser =  commonService.getUserById(currentUserId);
 
-		commonService.validateAdmin(writer);
+		authorizationService.checkAdmin(currentUser);
 
 		Notice notice = new Notice(
 			board,
-			writer,
+			currentUser,
 			request.title(),
 			request.text()
 		);
@@ -73,7 +78,7 @@ public class PostService {
 			notice.getId(),
 			board.getName(),
 			notice.getTitle(),
-			writer.getNickname()
+			currentUser.getNickname()
 		);
 	}
 
@@ -127,6 +132,7 @@ public class PostService {
 
 	// 게시판의 글을 조회하는 것 -> 게시판의 책임이 맞지만
 	// 실제 글 조회는 Post Entity와 PostRepository에서 일어나서 여기다 두는게 맞음
+	// 이거 N+1 터질거 같음 ㅋㅋ
 	public Page<PostResponse.Read> readAllByBoardId(Long boardId,  Pageable pageable) {
 		//게시판 존재 여부 확인
 		commonService.getBoardById(boardId);
@@ -135,6 +141,7 @@ public class PostService {
 			.map(this::toResponse);
 	}
 
+	/// todo: 여기도 N+1 터짐 해결책 강구 Entity Graph + Batch Size 로 해결하기 (Page때문)
 	public Page<PostResponse.Read> readByTitle(String title, Pageable pageable) {
 		// 그냥 빈 리스트를 반환하게 해서 없구나 하는걸 알게 하고 싶음
 		return postRepository.findAllByTitle(title, pageable)
@@ -156,14 +163,14 @@ public class PostService {
 		);
 	}
 
-	public Post getEntityByPostId(Long postId) {
+	private Post getEntityByPostId(Long postId) {
 		return postRepository.findById(postId)
 			.orElseThrow(()-> new PostException(ExceptionCode.NOT_FOUND_POST));
 	}
 
 	// Update
 	// 제목 수정, 본문 수정
-	public PostResponse.Update updatePost(Long id, PostRequest.Update request) {
+	public PostResponse.Update update(Long id, PostRequest.Update request, Long currentUserId) {
 		// postRepository.findById(id) -> Spring Data JPA가 제공하는 메서드인데
 		// 리턴타입이 Optional<T>로 되어 있음
 		// 항상 Optional로 반환
@@ -173,10 +180,12 @@ public class PostService {
 		// 3. Bean Validation
 //		post.validateWriterAndPassword(postUpdateRequest.writer(), postUpdateRequest.password(),  passwordEncoder);
 		User writer = post.getUser();
-		writer.validateNickname(request.nickName());
 
-		// 검증을 User객체 본인이 하게 만듬
-		writer.validatePassword(request.password(), passwordEncoder);
+		User currentUser = commonService.getUserById(currentUserId);
+
+		authorizationService.checkOwner(writer, currentUser);
+
+		currentUser.validatePassword(request.password(), passwordEncoder);
 
 		post.update(request.title(), request.text());
 
@@ -194,9 +203,10 @@ public class PostService {
 
 	// 내부에서만 사용하는 메서드기에 private
 	// 원래는 notice 엔티티에 update를 오버라이딩해서 검증하려했는데 삭제할 때도 검증해야하기때문에 검증을 service에 만들자
+	// 이제 검증을 authorizationService에서 하고 있으니 필요 없을 듯
 	private void validateUpdateDeletePermission(Post post, User currentUser) {
 		if(post instanceof Notice) {
-			if(currentUser.isAdmin()){
+			if(!currentUser.isAdmin()){
 				throw new NoticeException(ExceptionCode.FORBIDDEN_ADMIN);
 			}
 		}
@@ -204,16 +214,22 @@ public class PostService {
 
 	// Delete
 	// 게시글 삭제 시 댓글들도 삭제되어야함
-	public void delete(Long id, PostRequest.Delete request) {
+	public void delete(Long id, PostRequest.Delete request, Long currentUserId) {
 		Post post = getEntityByPostId(id);
 
 		// User를 만들어주면서 user 본인 객체에게 검증을 맡김
 		User writer = post.getUser();
 
-		writer.validateNickname(request.nickName());
+		// 1. 현재 로그인한 유저 엔티티 조회
+		User currentUser = commonService.getUserById(currentUserId);
 
-		writer.validatePassword(request.password(), passwordEncoder);
+		// 2. 도메인 규칙 : 작성자 본인 or 관리자만 삭제 가능
+		authorizationService.checkOwnerOrAdmin(writer, currentUser);
 
+		// 3. 비밀번호 재입력 검증. 현재 유저 기준으로 수행
+		currentUser.validatePassword(request.password(), passwordEncoder);
+
+		// 4. 실제 삭제 로직
 		// 객체의 연관관계를 단방향으로 설정하면 됨
 		// db관점에서는 이미 외래키로 연결되어 있어서 쿼리 날릴 때 연관해서 날아갈 수 있음
 		postRepository.delete(post);

@@ -14,12 +14,11 @@ public class CustomUserDetailsService implements UserDetailsService {
 
 	private final UserRepository userRepository;
 
-	// username nickname으로 사용
+	// username email 사용(로그인 ID를 말하는 것임)
 	@Override
 	public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
 		// username에는 /login 폼에서 입력한 값이 들어옴
-		// warp는 이메일을 아이디로 쓰자 했지만 나는 nickname을 아이디로 사용하고 싶음
-		User user = userRepository.findByNickname(username)
+		User user = userRepository.findByEmail(username)
 			.orElseThrow(()-> new UserException(ExceptionCode.NOT_FOUND_USER));
 
 		return new CustomUserDetails(user);

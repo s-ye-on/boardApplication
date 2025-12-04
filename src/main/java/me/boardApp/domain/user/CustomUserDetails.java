@@ -38,8 +38,8 @@ public class CustomUserDetails implements UserDetails {
 
 	@Override
 	public String getUsername() {
-		// 로그인 ID로 "이메일"을 쓰기로 하자
-		return user.getNickname(); /// todo : 이부분 조금 이해가 안감 userName은 닉네임을 갖고 오는게 맞을거라 생각함
+		// 로그인 ID로 "이메일"을 쓰기로 하자 로그인할 떄 필요한 ID
+		return user.getEmail();
 	}
 
 	@Override

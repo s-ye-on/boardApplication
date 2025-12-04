@@ -50,8 +50,13 @@ public class CommonService {
 			.orElseThrow(() -> new UserException(ExceptionCode.NOT_FOUND_NICKNAME));
 	}
 
+	public User getUserById(Long userId) {
+		return userRepository.findById(userId)
+			.orElseThrow(() -> new UserException(ExceptionCode.NOT_FOUND_USER));
+	}
+
 	public void validateAdmin(User user) {
-		if(user.getRole() != User.Role.ADMIN) {
+		if(!user.isAdmin()) {
 			throw new UserException(ExceptionCode.FORBIDDEN_ADMIN);
 		}
 	}

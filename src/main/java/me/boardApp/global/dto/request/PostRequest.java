@@ -15,9 +15,6 @@ public sealed interface PostRequest extends BoardRequest
 		@NotBlank(message = "게시판 입력은 필수 입니다")
 		Long boardId,
 
-		@NotBlank(message = "작성자 입력은 필수 입니다")
-		String nickname,
-
 		@NotBlank(message = "제목 입력은 필수 입니다")
 		@Size(max = 50, message = "제목은 최대 50자까지 가능합니다")
 		String title,
@@ -28,9 +25,6 @@ public sealed interface PostRequest extends BoardRequest
 	)implements PostRequest{}
 
 	record Update(
-		@NotBlank(message = "작성자 입력은 필수 입니다")
-		String nickName,
-
 		@NotBlank(message = "비밀번호 입력은 필수 입니다")
 		String password,
 
@@ -46,14 +40,7 @@ public sealed interface PostRequest extends BoardRequest
 	implements PostRequest{}
 
 	record Delete(
-		@NotBlank(message = "작성자 입력은 필수 입니다")
-		String nickName,
-
 		@NotBlank(message = "비밀번호 입력은 필수 입니다")
 		String password
-
-//	@NotBlank(message = "작성자 입력은 필수 입니다")
-//	String writer
-//
 	)implements PostRequest{}
 }

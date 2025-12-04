@@ -15,6 +15,7 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
 	List<Comment> findAllByPostId(Long postId);
 	List<Comment> findAllByPostIdOrderByCreatedDateAsc(Long postId);
 	List<Comment> findAllByUserNickname(String writer);
+	List<Comment> findALlByUserId(Long userId);
 
 	// slice로 조회
 	Slice<Comment> findByPostIdOrderByCreatedDateAsc(Long postId, Pageable pageable);
