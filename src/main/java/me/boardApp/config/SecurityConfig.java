@@ -1,5 +1,7 @@
 package me.boardApp.config;
 
+import me.boardApp.auth.JwtAccessDeniedHandler;
+import me.boardApp.auth.JwtAuthenticationEntryPoint;
 import me.boardApp.auth.jwt.JwtAuthenticationFilter;
 import me.boardApp.auth.jwt.JwtTokenProvider;
 import me.boardApp.domain.user.UserRepository;
@@ -39,12 +41,17 @@ public class SecurityConfig {
 	// 1. 어떤 URL에 보안 걸지 & 로그인 방식 정의
 	@Bean
 	public SecurityFilterChain securityFilterChain(HttpSecurity http,
-																								 JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
+																								 JwtAuthenticationFilter jwtAuthenticationFilter,
+																								 JwtAuthenticationEntryPoint authenticationEntryPoint,
+																								 JwtAccessDeniedHandler accessDeniedHandler) throws Exception {
 		http
 			.csrf(AbstractHttpConfigurer::disable)
 			.sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 			.formLogin(AbstractHttpConfigurer::disable)
 			.logout(AbstractHttpConfigurer::disable)
+			.exceptionHandling(ex->ex
+				.authenticationEntryPoint(authenticationEntryPoint)
+				.accessDeniedHandler(accessDeniedHandler))
 			.authorizeHttpRequests(auth -> auth
 				.requestMatchers(
 					"/",
@@ -55,7 +62,9 @@ public class SecurityConfig {
 					"/boards.html",
 					"/h2-console/**",
 					"/css/**",
-					"/js/**").permitAll()
+					"/js/**",
+					"/images/**"
+				).permitAll()
 				.anyRequest().authenticated()
 			)
 			.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

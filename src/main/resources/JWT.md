@@ -197,3 +197,154 @@ dependencies {
 
 JwtTokenProvider 만든 이후 JwtAuthenticationFilter만들면 됨
 다음으로 SecurityConfig를 stateless + JWt 필터 추가로 변경
+
+# JWT
+Spring Security는 기본적으로 세션 기반 인증을 사용하지만, REST API 서버를 개발할 때는 세션이 아니라 JWT(JSON Web Token) 기반 인증을 사용하는 경우가 많다. </br>
+JWT는 유저가 로그인하면 서버가 토큰을 발급하고, 이후 모든 요청에는 이 토큰을 함께 보내서 인증을 처리하는 방식
+
+## 1. 로그인 요청 흐름 (AuthController)
+유저는 /auth/login 같은 엔드 포인트로 **ID + Password**를 보낸다 </br>
+로그인 시 AuthController가 토큰 발급
+```java
+@PostMapping("/login")
+public LoginResponse login(@RequestBody LoginRequest request) {
+    // 1. 아이디로 유저 조회
+    User user = userService.findByEmail(request.getEmail());
+
+    // 2. 비밀번호 검증
+    passwordEncoder.matches(request.getPassword(), user.getPassword());
+
+    // 3. JWT 토큰 발급
+    String token = jwtTokenProvider.generateToken(user);
+
+    return new LoginResponse(token);
+}
+```
+### ✔ 여기서 중요한 포인트
+- 로그인 시 세션을 사용하지 않는다
+- 인증이 성공하면 서버가 JWT 토큰을 발급한다
+- 클라이언트는 이 토큰을 저장한다 (localStorage 등)
+
+## 2. JWT 토큰 생성 담당(JwtTokenProvider)
+토큰 생성 & 검증 담당 클래스 
+```java
+@Component
+public class JwtTokenProvider {
+
+    @Value("${app.jwt.secret}")
+    private String secretKey;
+
+    @Value("${app.jwt.expiration-seconds}")
+    private long expiration;
+
+    private Key key;
+
+    @PostConstruct
+    public void init() {
+        this.key = Keys.hmacShaKeyFor(secretKey.getBytes());
+    }
+
+    public String generateToken(User user) {
+        Date now = new Date();
+        Date expire = new Date(now.getTime() + expiration * 1000);
+
+        return Jwts.builder()
+                .setSubject(user.getId().toString())
+                .claim("role", user.getRole().name())
+                .setIssuedAt(now)
+                .setExpiration(expire)
+                .signWith(key, SignatureAlgorithm.HS256)
+                .compact();
+    }
+
+    public Claims parseClaims(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(key)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+    }
+}
+```
+### ✔ JWTTokenProvider가 하는 일 
+- 서명용 secret key 초기화
+- 토큰 생성(generateToken)
+- 토큰 검증(parseClaims)
+- 토큰에서 사용자 정보 꺼내기 
+
+## 3. 요청 인증 처리 (JwtAuthenticationFilter)
+이 필터는 사용자가 API를 호출할 때마다 실행</br>
+토큰을 읽고 인증 처리
+
+요약 흐름 :
+```java
+요청 → JwtAuthenticationFilter → SecurityContext → 컨트롤러
+```
+핵심 코드 구조 형태 : 
+```java
+public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    private final JwtTokenProvider jwtTokenProvider;
+    private final CustomUserDetailsService userDetailsService;
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    FilterChain filterChain)
+            throws ServletException, IOException {
+
+        String token = resolveToken(request);
+
+        if (token != null && jwtTokenProvider.validateToken(token)) {
+            Claims claims = jwtTokenProvider.parseClaims(token);
+
+            String userId = claims.getSubject();
+            UserDetails userDetails = userDetailsService.loadUserById(userId);
+
+            UsernamePasswordAuthenticationToken auth =
+                new UsernamePasswordAuthenticationToken(
+                    userDetails, null, userDetails.getAuthorities()
+                );
+
+            SecurityContextHolder.getContext().setAuthentication(auth);
+        }
+
+        filterChain.doFilter(request, response);
+    }
+}
+```
+### ✔ JwtAuthenticationFilter 역할
+- HTTP 요청 Header("Authorization")에서 JWT 파싱
+- 토큰 유효성 검증
+- 토큰에서 userId 꺼냄
+- DB에서 userDetails 재로드
+- SecurityContext에 인증 정보 저장
+
+## 4. SecurityConfig에 필터 추가
+SecurityConfig는 필터 등록 + 보호할 URL 설정 </br>
+마지막 설정은 SecurityConfig에서 필터 등록 : 
+```java
+http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+```
+이렇게 설정해주면 Spring Security가 로그인 여부를 판단할 때 세션이 아니라 JWT 를 기준으로 인증하게 된다. 
+
+## 전체 인증 흐름 
+```java
+[1] 로그인
+Client → /auth/login(email, password)
+ → 서버가 JWT 발급
+ → 클라이언트가 JWT 저장
+
+[2] API 요청
+Client → Authorization: Bearer TOKEN
+
+[3] JwtAuthenticationFilter 동작
+ → 토큰 검증
+ → userId 추출
+ → DB에서 사용자 재조회
+ → SecurityContext에 저장
+
+[4] 인증된 요청만 컨트롤러 접근 가능
+```
+### 블로그 제목 
+"JWT와 Spring Security로 인증 시스템 구축하기"

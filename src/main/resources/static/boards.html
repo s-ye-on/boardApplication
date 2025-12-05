@@ -7,7 +7,7 @@
 <body>
 <h1>게시판 목록</h1>
 
-<div id="user-info"></div>
+<div id="user-info" style="margin-bottom: 8px; color: #333;"></div>
 <button id="logout-btn">로그아웃</button>
 
 <hr>
@@ -22,8 +22,33 @@
         window.location.href = '/login';
     }
 
-    // 2. 사용자 정보 표시 (간단히 텍스트만)
-    document.getElementById('user-info').textContent = '로그인 완료 (토큰 보유)';
+    // 2. 현재 로그인한 유저 정보 표시 (선택: /auth/me 호출)
+    async function loadMe() {
+        try {
+            const res = await fetch('/auth/me', {
+                headers: {
+                    'Authorization': 'Bearer ' + token
+                }
+            });
+
+            if (!res.ok) {
+                // 인증 문제면 다시 로그인 유도
+                if (res.status === 401 || res.status === 403) {
+                    alert('인증이 만료되었거나 잘못되었습니다. 다시 로그인해주세요.');
+                    localStorage.removeItem('accessToken');
+                    window.location.href = '/login';
+                }
+                return;
+            }
+
+            const me = await res.json();
+            const info = document.getElementById('user-info');
+            info.textContent = `로그인: ${me.nickname} (${me.email})`;
+        } catch (e) {
+            console.error(e);
+            document.getElementById('user-info').textContent = '로그인 정보 로딩 실패';
+        }
+    }
 
     // 3. 게시판 목록 불러오기
     async function loadBoards(page = 0) {
@@ -50,7 +75,7 @@
             const ul = document.getElementById('board-list');
             ul.innerHTML = '';
 
-            // ✅ 서버 응답의 content 배열 사용
+            // data.content 는 백엔드에서 보내는 Page<BoardResponse.Read> 의 content 배열
             data.content.forEach(board => {
                 const li = document.createElement('li');
                 li.textContent = `${board.name} - ${board.description} (${board.type})`;
@@ -70,6 +95,7 @@
     });
 
     // 초기 로드
+    loadMe();
     loadBoards();
 </script>
 

@@ -3,6 +3,7 @@ package me.boardApp.auth;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import me.boardApp.auth.jwt.JwtTokenProvider;
+import me.boardApp.domain.user.CustomUserDetails;
 import me.boardApp.domain.user.User;
 import me.boardApp.domain.user.UserRepository;
 import me.boardApp.global.dto.request.UserRequest;
@@ -10,11 +11,9 @@ import me.boardApp.global.exception.ExceptionCode;
 import me.boardApp.global.exception.UserException;
 import me.boardApp.global.response.SuccessMessage;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/auth")
@@ -58,4 +57,16 @@ public class AuthController {
                 .status(SuccessMessage.LOGIN_SUCCESS.getStatus())
                 .body(response);
     }
+		@GetMapping("/me")
+		public ResponseEntity<LoginResponse> me(@AuthenticationPrincipal CustomUserDetails userDetails) {
+			// JwtAuthenticationFilter 덕분에 여기 올 때 이미 인증된 상태
+			LoginResponse response = new LoginResponse(
+				userDetails.getId(),
+				userDetails.getEmail(),
+				userDetails.getNickname(),
+				null, // 토큰은 여기서 다시 줄 필요 x
+				"현재 로그인된 사용자 정보"
+			);
+			return ResponseEntity.ok(response);
+		}
 }
