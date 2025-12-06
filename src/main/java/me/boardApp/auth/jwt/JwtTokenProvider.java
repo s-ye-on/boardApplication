@@ -4,6 +4,8 @@ import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import io.jsonwebtoken.security.SecurityException;
 import jakarta.annotation.PostConstruct;
+import me.boardApp.global.exception.AuthorizationException;
+import me.boardApp.global.exception.ExceptionCode;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -32,12 +34,12 @@ public class JwtTokenProvider {
 	}
 
 	// JWt를 생성하는 메서드
-	public String generateAccessToken(Long userId, String email, String role){
+	public String generateAccessToken(Long userId, String email, String role) {
 		long now = System.currentTimeMillis();
 		Date validity = new Date(now + tokenValidityInSeconds * 1000);
 
 		return Jwts.builder()
-			.setSubject(String.valueOf(userId))		// sub : 유저 ID
+			.setSubject(String.valueOf(userId))    // sub : 유저 ID
 			.claim("email", email)
 			.claim("role", role)
 			.setIssuedAt(new Date(now))
@@ -46,41 +48,40 @@ public class JwtTokenProvider {
 			.compact();
 	}
 
-	public boolean validateToken(String token){
-		try{
+	public void validateToken(String token) {
+		try {
 			Jwts.parserBuilder()
 				.setSigningKey(key)
 				.build()
 				.parseClaimsJws(token);
-			return true;
-		} catch(SecurityException | MalformedJwtException e){
+		} catch (SecurityException | MalformedJwtException e) {
 			// 잘못된 JWT 서명
-			return false;
-		} catch(ExpiredJwtException e){
+			throw new AuthorizationException(ExceptionCode.TOKEN_INVALID);
+		} catch (ExpiredJwtException e) {
 			//토큰 만료
-			return false;
-		} catch (UnsupportedJwtException e){
-			return false;
-		} catch(IllegalArgumentException e){
-			return false;
+			throw new AuthorizationException(ExceptionCode.TOKEN_EXPIRED);
+		} catch (UnsupportedJwtException e) {
+			throw new AuthorizationException(ExceptionCode.TOKEN_UNSUPPORTED);
+		} catch (IllegalArgumentException e) {
+			throw new AuthorizationException(ExceptionCode.TOKEN_INVALID);
 		}
 	}
 
-	public Long getUserId(String token){
+	public Long getUserId(String token) {
 		Claims claims = parseClaims(token);
 		return Long.valueOf(claims.getSubject());
 	}
 
-	public String getEmail(String token){
+	public String getEmail(String token) {
 		Claims claims = parseClaims(token);
 		return claims.get("email", String.class);
 	}
 
-	public String getRole(String token){
+	public String getRole(String token) {
 		return parseClaims(token).get("role", String.class);
 	}
 
-	private Claims parseClaims(String token){
+	private Claims parseClaims(String token) {
 		return Jwts.parserBuilder()
 			.setSigningKey(key)
 			.build()

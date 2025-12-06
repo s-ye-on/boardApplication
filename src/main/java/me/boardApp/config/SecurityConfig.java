@@ -1,7 +1,7 @@
 package me.boardApp.config;
 
 import me.boardApp.auth.JwtAccessDeniedHandler;
-import me.boardApp.auth.JwtAuthenticationEntryPoint;
+import me.boardApp.auth.jwt.JwtAuthenticationEntryPoint;
 import me.boardApp.auth.jwt.JwtAuthenticationFilter;
 import me.boardApp.auth.jwt.JwtTokenProvider;
 import me.boardApp.domain.user.UserRepository;
@@ -40,25 +40,27 @@ public class SecurityConfig {
 
 	// 1. 어떤 URL에 보안 걸지 & 로그인 방식 정의
 	@Bean
-	public SecurityFilterChain securityFilterChain(HttpSecurity http,
-																								 JwtAuthenticationFilter jwtAuthenticationFilter,
-																								 JwtAuthenticationEntryPoint authenticationEntryPoint,
-																								 JwtAccessDeniedHandler accessDeniedHandler) throws Exception {
+	public SecurityFilterChain securityFilterChain(
+		HttpSecurity http,
+		JwtAuthenticationFilter jwtAuthenticationFilter,
+		JwtAuthenticationEntryPoint authenticationEntryPoint,
+		JwtAccessDeniedHandler accessDeniedHandler
+	) throws Exception {
 		http
 			.csrf(AbstractHttpConfigurer::disable)
 			.sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 			.formLogin(AbstractHttpConfigurer::disable)
 			.logout(AbstractHttpConfigurer::disable)
-			.exceptionHandling(ex->ex
+			.exceptionHandling(ex -> ex
 				.authenticationEntryPoint(authenticationEntryPoint)
 				.accessDeniedHandler(accessDeniedHandler))
 			.authorizeHttpRequests(auth -> auth
 				.requestMatchers(
 					"/",
-					"/login",			// 로그인 화면
-					"/users/join",		//JSON 회원 가입
-					"users/join-form",	// 폼 회원 가입
-					"/auth/login",		// JWT 로그인 API
+					"/login",      // 로그인 화면
+					"/users/join",    //JSON 회원 가입
+					"users/join-form",  // 폼 회원 가입
+					"/auth/login",    // JWT 로그인 API
 					"/boards.html",
 					"/h2-console/**",
 					"/css/**",

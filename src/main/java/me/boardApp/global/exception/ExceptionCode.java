@@ -22,8 +22,12 @@ public enum ExceptionCode {
 	INVALID_EMAIL(HttpStatus.BAD_REQUEST, "이메일이 일치하지 않습니다"),
 	USER_VALIDATION_FAILED(HttpStatus.BAD_REQUEST, "사용자 정보가 올바르지 않습니다"),
 
-	// 401 Unauthorized 인증 필요(로그인 안됨)
-
+	// 401 Unauthorized 인증 필요(로그인 안됨) or 토큰 관련
+	UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "인증이 필요합니다."),
+	TOKEN_MISSING(HttpStatus.UNAUTHORIZED, "인증 토큰을 없습니다"),
+	TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "인증 토큰이 유효하지 않습니다"),
+	TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "인증 토큰이 만료되었습니다"),
+	TOKEN_UNSUPPORTED(HttpStatus.UNAUTHORIZED, "지원되지 않는 인증 토큰입니다"),
 
 	//403 FORBIDDEN
 	// "인증은 되었지만, 권한이 없는 경우"
