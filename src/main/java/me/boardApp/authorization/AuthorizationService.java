@@ -5,6 +5,7 @@ import me.boardApp.global.exception.ExceptionCode;
 import me.boardApp.global.exception.UserException;
 import org.springframework.stereotype.Service;
 
+// 도메인 권한 체크
 @Service
 public class AuthorizationService {
 	// 권한 검증(Authorization)이 필요한 이유

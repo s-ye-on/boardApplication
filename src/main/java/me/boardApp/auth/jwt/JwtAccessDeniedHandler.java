@@ -1,4 +1,4 @@
-package me.boardApp.auth;
+package me.boardApp.auth.jwt;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 
+// 권한은 있지만 Role 부족 -> 여기서 403 응답
 @Component
 public class JwtAccessDeniedHandler implements AccessDeniedHandler {
 

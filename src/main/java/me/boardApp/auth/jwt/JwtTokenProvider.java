@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 import java.security.Key;
 import java.util.Date;
 
+// 토큰 만들기
 // spring bean 으로 등록해서 어디서든 DI 받아서 쓸 수 있도록 만들어 둔 것
 @Component
 public class JwtTokenProvider {

@@ -24,7 +24,8 @@ public class CommonService {
 	// commonService는 순환참조를 해결하기 위해 존재하기 때문에 조회를 모조리 다 넣을 필요는 없음
 	// 다른 서비스에서 참조해야하는 최소한의 기능만 넣으면 됨
 
-	// 단일 책임에 충실하게 "조회만" 담당하도록 만들어봄
+	// 단일 책임에 충실하게 "조회 + 예외 처리"만 담당하도록 만들어봄
+	// 이 조건이 안지켜진다면 쓰레기통 service가 될 것임
 	private final BoardRepository boardRepository;
 	private final PostRepository postRepository;
 	private final CommentRepository commentRepository;
@@ -52,6 +53,11 @@ public class CommonService {
 
 	public User getUserById(Long userId) {
 		return userRepository.findById(userId)
+			.orElseThrow(() -> new UserException(ExceptionCode.NOT_FOUND_USER));
+	}
+
+	public User getUserByEmail(String email) {
+		return userRepository.findByEmail(email)
 			.orElseThrow(() -> new UserException(ExceptionCode.NOT_FOUND_USER));
 	}
 

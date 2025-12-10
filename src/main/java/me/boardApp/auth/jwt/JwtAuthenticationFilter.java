@@ -9,6 +9,7 @@ import me.boardApp.domain.user.CustomUserDetails;
 import me.boardApp.domain.user.User;
 import me.boardApp.domain.user.UserRepository;
 import me.boardApp.global.exception.AuthorizationException;
+import me.boardApp.global.exception.ExceptionCode;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -16,6 +17,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
+// 매 요청마다 토큰 검사
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 	// 역할 :
@@ -34,7 +36,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 		String authHeader = request.getHeader("Authorization");
 
 		// Authorization 헤더가 없으면 이 필터는 건너 뛰고, 나머지 체인에 맡긴다
-		// 토큰 없는 요청은 익명 요청으로 두고, 나중에 시큐리티가 401/403 판단
+		// 토큰 없는 요청은 익명 요청으로 두고, 다음 필터로 넘김 나중에 시큐리티가 401/403 판단
+		// 이렇게 해야 /login 같은 공용 API 호출 가능
 		if(authHeader == null || !authHeader.startsWith("Bearer ")) {
 			filterChain.doFilter(request, response);
 			return;
@@ -48,7 +51,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 			jwtTokenProvider.validateToken(token);
 
 			Long userId = jwtTokenProvider.getUserId(token);
-			User user = userRepository.findById(userId).orElse(null);
+			// 지금은 user가 없으면 null로 반환하고 그냥 통과 시키고 있음
+			// 토큰은 유효하지만 해당 유저가 없는 경우 -> 삭제, 탈퇴 일 수 있음
+			// null 반환이 아니라 예외를 던져서 처리하는걸로 수정해서 막자
+			// 삭제된 유저의 토큰까지 막기
+			User user = userRepository.findById(userId)
+				.orElseThrow(()-> new AuthorizationException(ExceptionCode.TOKEN_INVALID));
 
 			if(user != null){
 				// User 엔티티 -> Spring Security UserDetails로 변환

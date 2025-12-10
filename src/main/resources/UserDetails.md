@@ -96,3 +96,48 @@ public class CustomUserDetailsService implements UserDetailsService {
 - 하지만 지금처럼 /login 폼 + Spring Security 인증/인가 기능을 사용하고 싶다
   - Spring Security가 요구하는 방식대로 UserDetails/UserDetailsService를 제공해야 </br>
     내 User 엔티티/DB와 자연스럽게 연결할 수 있음
+
+## CustomUserDetails는 컨트롤러에서 쓰이는데, 왜 CustomUserDetailsService는 안보일까?
+### CustomUserDetails
+- 역할 : 
+  - "스프링 시큐리티가 이해할 수 있는 사용자 정보" 형태로 감싼 Principal 객체
+- 컨트롤러에서 매개 변수에
+
+```java
+import me.boardApp.domain.user.CustomUserDetails;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+
+@AuthenticationPrincipal CustomUserDetails customUserDetails
+```
+이렇게 많이 쓴다
+- 이건 이미 인증이 끝난 다음에, "지금 로그인해 있는 사람 정보 좀 줘"할 때 사용하는 것
+
+즉, CustomUserDetails = "인증이 끝난 후, 현재 로그인한 사용자 정보"
+
+### CustomUserDetailsService
+```java
+@Service
+public class CustomUserDetailsService implements UserDetailsService {
+    private final UserRepository userRepository;
+
+    @Override
+    public UserDetails loadUserByUsername(String username) {
+        User user = userRepository.findByEmail(username)
+            .orElseThrow(...);
+        return new CustomUserDetails(user);
+    }
+}
+```
+- 역할 :
+  - "로그인 시점에 이메일/아이디로 유저를 찾아서 `CustomUserDetails`로 감싸주는 어댑터"
+- 이건 컨트롤러에서 직접 호출하는 용도가 아니고, 스프링 시큐리티 내부에서 로그인 처리할 때 사용하는 "스프링용 서비스"
+
+핵심 : 
+- CustomUserDetails는 "완성된 인증 결과(Principal)"
+- CustomUserDetailsService는 "로그인 과정에서 그 Principal을 만들어주는 공장"
+- 컨트롤러는 결과만 쓰니까 CustomUserDetails만 보이고, CustomUserDetailsService는 Security 필터/프로바이더 내부에서만 쓰이기에 </br>
+    우리가 직접 호출할 일이 잘 없는 것임
+
+### JWT를 사용하면? 
+로그인 과정에 AuthenticationManager를 안쓰고, CustomUserDetailsService도 직접 호출 안하고 있음
+- "지금 구조에서는 필수는 아님. 하지만 Security의 정석적인 통로" 느낌
