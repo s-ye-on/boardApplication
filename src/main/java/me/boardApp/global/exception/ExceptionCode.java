@@ -28,6 +28,7 @@ public enum ExceptionCode {
 	TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "인증 토큰이 유효하지 않습니다"),
 	TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "인증 토큰이 만료되었습니다"),
 	TOKEN_UNSUPPORTED(HttpStatus.UNAUTHORIZED, "지원되지 않는 인증 토큰입니다"),
+	REFRESH_REUSED(HttpStatus.UNAUTHORIZED, "재사용된 리프레시 토큰입니다"),
 
 	//403 FORBIDDEN
 	// "인증은 되었지만, 권한이 없는 경우"

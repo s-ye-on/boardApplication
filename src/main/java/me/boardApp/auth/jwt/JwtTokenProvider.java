@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.security.Key;
+import java.time.LocalDateTime;
 import java.util.Date;
 
 // 토큰 만들기
@@ -64,6 +65,10 @@ public class JwtTokenProvider {
 			.setExpiration(validity)
 			.signWith(key, SignatureAlgorithm.HS256)
 			.compact();
+	}
+
+	public LocalDateTime calculateRefreshExpiry() {
+		return LocalDateTime.now().plusSeconds(refreshTokenValidityInSeconds);
 	}
 
 	public void validateToken(String token) {

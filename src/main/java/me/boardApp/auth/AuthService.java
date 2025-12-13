@@ -21,7 +21,6 @@ import java.time.LocalDateTime;
 @Service
 @RequiredArgsConstructor
 public class AuthService {
-	private static final int ONE_WEEK = 604800;
 
 	// 여기서도 단순 조회라 commonService 써도 되지만,
 	// 인증(Auth)도 결국 "User 도메인 위에 올라가는 별도의 서브 도메인"이라 볼 수 있고,
@@ -49,17 +48,19 @@ public class AuthService {
 		// 3-1. 추가 : Refresh Token 생성
 		String refreshTokenValue = jwtTokenProvider.generateRefreshToken(user.getId());
 
-		// 3-2 : Refresh Token DB 저장/업데이트
-		// .plusSeconds(ONE_WEEK)를 지금 서비스에서 해주고 있지만 엔티티쪽에서 해주면 더 깔끔할 것 같기도 함 고민 해보자
-		RefreshToken refreshToken = refreshTokenRepository.findByUser(user)
+		// refresh token 만료 기간 계산
+		LocalDateTime refreshExpiry = jwtTokenProvider.calculateRefreshExpiry();
+
+		// 3-2 : Refresh Token DB 저장/업데이트 (만료 계산은 JwtTokenProvider에서 처리)
+		RefreshToken refreshToken = refreshTokenRepository.findTopByUserOrderByIdDesc(user)
 			.map(rt -> {
-				rt.updateToken(refreshTokenValue, LocalDateTime.now().plusSeconds(ONE_WEEK));
+				rt.rotate(refreshTokenValue, refreshExpiry);
 				return rt;
 			})
 			.orElseGet(() -> RefreshToken.create(
 				user,
 				refreshTokenValue,
-				LocalDateTime.now().plusSeconds(ONE_WEEK)
+				refreshExpiry
 			));
 
 		refreshTokenRepository.save(refreshToken);
@@ -92,6 +93,10 @@ public class AuthService {
 			throw new AuthorizationException(ExceptionCode.TOKEN_EXPIRED);
 		}
 
+		if (refreshToken.getStatus() == RefreshToken.Status.REVOKED) {
+			throw new AuthorizationException(ExceptionCode.REFRESH_REUSED);
+		}
+
 		User user = refreshToken.getUser();
 
 		// 3. 새 Access Token 생성
@@ -101,13 +106,22 @@ public class AuthService {
 			user.getRole().name()
 		);
 
-		// 4. 필요하다면 여기서 refreshToken도 재발급. 하지만 지금은 유지로 선택
+		// 4. rotation : refresh token 재발급
+		refreshToken.revoke();
+		String newRefreshTokenValue = jwtTokenProvider.generateRefreshToken(user.getId());
+		LocalDateTime newRefreshExpiry = jwtTokenProvider.calculateRefreshExpiry();
+
+		RefreshToken newRefreshToken = RefreshToken.create(user, newRefreshTokenValue, newRefreshExpiry);
+
+		refreshTokenRepository.save(refreshToken); // 옛날 토큰 revoked 저장
+		refreshTokenRepository.save(newRefreshToken); // 새로운 토큰 active 저장
+
 		return new AuthResponse.Login(
 			user.getId(),
 			user.getEmail(),
 			user.getNickname(),
 			newAccessToken,
-			refreshTokenValue,
+			newRefreshTokenValue,
 			"Access Token 재발급 성공"
 		);
 	}

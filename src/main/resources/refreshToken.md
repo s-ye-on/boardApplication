@@ -131,3 +131,136 @@ public AuthResponse.Login refresh(RefreshRequest request) {
 	}
 ```
 ### 5-3 AuthController에 매핑 추가 
+```java
+@PostMapping("/refresh")
+	public ResponseEntity<AuthResponse.Login> refresh(@RequestBody @Valid RefreshRequest request) {
+		AuthResponse.Login response = authService.refresh(request);
+		return ResponseEntity.ok(response);
+	}
+```
+
+## Refresh Token Rotation
+Refresh Token을 한 번 쓰면, 반드시 새 Refresh Token으로 교체하는 방식
+
+### Rotation 없는 경우의 문제점 
+```text
+Refresh Token 탈취됨
+↓
+공격자가 계속 Access Token 재발급
+↓
+사용자는 눈치도 못 챔 😱
+```
+### Refresh Token Rotaion 흐름 (정석)
+로그인 시 
+1. Access Token 발급
+2. Refresh Token 바급
+3. Refresh Token을 DB에 저장  
+   (user_id, token, 만료시간, revoked=false)
+
+### Access Token 만료 -> /auth/refresh 요청
+```java
+POST /auth/refresh
+Authorization: Bearer <refresh-token>
+```
+서버 로직
+1. Refresh Token 조회
+2. DB에 존재하는지 확인
+3. 만료 여부 확인
+4. revoked 여부 확인  
+여기까지 통과함녀 정상 토큰
+
+### 정상일 경우 (Rotation 발생)
+```text
+기존 Refresh Token → 폐기
+새 Refresh Token → 발급 & 저장
+새 Access Token → 발급
+```
+✔ 기존 토큰 : revoked = true
+✔ 새 토큰 : revoked = false
+
+## Refresh Token 재사용 감지란?
+공격자가 이미 사용된 Refresh Token을 다시 사용  
+위험한 이유 : 
+- 이미 정상 사용자 쪽에서는 토큰이 교체되었음
+- 그럼에도 같은 토큰이 다시 들어왔다? -> 100% 탈취
+
+### 재사용 감지시 대응 전략 
+즉시 해야 할 것 : 
+- 해당 Refresh Token -> 이미 revoked 상태
+- 그런데도 또 들어왔다?
+- -> 그 사용자 소유의 모든 Refresh Token 전부 폐기
+- 강제 로그아웃 처리
+
+### Refresh Token을 유저당 하나만 유지한다면?
+유저당 refresh token 1개 설계는 여러 기기 동시 로그인에 제약이 있다  
+이 설계의 전제 : "한 유저는 동시에 하나의 로그인 상태만 유지한다"  
+
+#### 1. 유저당 Refresh Token 1개 = 어떤 의미? 
+- A 유저가 노트북에서 로그인
+  - Refresh Token A 발급 & DB 저장
+- 같은 유저가 모바일에서 로그인
+  - Refresh Token B 발급 & DB에서 A를 덮어씀  
+
+결과 : 
+- 노트북의 refresh token A -> 무효 
+- 모바ㅣㅇㄹ로만 로그인 유지  
+즉 , 가장 마지막 로그인만 유효 
+
+#### Refresh Token 유저당 하나만 유지했을 때의 장점
+장점 : 
+- 보안이 강함
+- 토큰 탈취 시 피해 범위 작음
+- 구현 단순
+- "강제 로그아웃"이 쉬움
+- 재사용 감지 로직이 깔끔  
+
+실제로 :
+- 사내 서비스 
+- 관리자 시스템
+- 금융/보안 민감 서비스 
+- 이 설계를 일부러 선택하는 경우가 많음
+
+### 여러 기기 지원은 어떻게 할까? (확장 설계)
+여러 기기를 지원하려면 토큰의 소유 단위를 바꿔야함  
+유저 기준에서 -> 세션(디바이스) 기준으로  
+```text
+User 1
+ ├─ RefreshToken (device A)
+ ├─ RefreshToken (device B)
+ └─ RefreshToken (device C)
+```
+보통의 구현  
+다중 기기용 Refresh Token 엔티티 예시
+```java
+@Entity
+public class RefreshToken {
+
+    @Id @GeneratedValue
+    private Long id;
+
+    @ManyToOne(fetch = LAZY)
+    private User user;
+
+    private String token;
+
+    private LocalDateTime expiryDate;
+
+    @Enumerated(EnumType.STRING)
+    private Status status;
+
+    private String deviceId; // ⭐ 핵심 (UUID, User-Agent hash 등)
+}
+```
+그리고 조회 기준이 바뀜 👇
+```java
+findByUserAndDeviceId(user, deviceId)
+```
+### 로테이션은 어떻게 ? 
+기기별 로테이션
+- 모바일 -> 모바일 토큰만 갱신
+- 노트북 -> 노트북 토큰 유지  
+
+재사용 감지
+- 해당 deviceId 범위에서만 revoke
+- 다른 기기는 영향 없음
+
