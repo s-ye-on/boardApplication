@@ -12,7 +12,7 @@ import me.boardApp.global.exception.NoticeException;
 
 @Entity
 @Getter
-@NoArgsConstructor(access =  AccessLevel.PROTECTED)
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @DiscriminatorValue("NOTICE") // 각 하위 클래스의 구분 값 지정
 public class Notice extends Post {
 
@@ -23,7 +23,7 @@ public class Notice extends Post {
 	// 부모의 update를 그대로 호출한다면 오버라이딩을 할 필요가 없음
 	@Override
 	public void update(String title, String text) {
-		if(getUser().isAdmin()){
+		if (getUser().isAdmin()) {
 			throw new NoticeException(ExceptionCode.FORBIDDEN_ADMIN);
 		}
 		super.update(title, text);

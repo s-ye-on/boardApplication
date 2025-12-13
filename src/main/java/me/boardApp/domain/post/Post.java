@@ -8,6 +8,7 @@ import me.boardApp.BaseEntity;
 import me.boardApp.domain.board.Board;
 import me.boardApp.domain.comment.Comment;
 import me.boardApp.domain.user.User;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -59,7 +60,7 @@ public class Post extends BaseEntity {
 	// 2. DB 컬럼 값을 필드에 세팅
 	// -> JPA 엔티티는 "반드시 매개변수 없는 생성자(기본 생성자)가 있어야 함
 	// 그걸 이제 @NoArgsConstructor(access = AccessLevel.PROTECTED) 이게 해줌
-	public Post(Board board, User user , String title, String text) {
+	public Post(Board board, User user, String title, String text) {
 		this.board = board;
 		this.user = user;
 		this.title = title;

@@ -56,6 +56,8 @@ public class SecurityConfig {
 					"/users/join",    //JSON 회원 가입
 					"/users/join-form",  // 폼 회원 가입
 					"/auth/login",    // JWT 로그인 API
+					"/auth/refresh",  // 리프레시 토큰 재발급은 access 토큰 없이도 호출 가능해야 함(accessToken 만료됐을 확률이 높음)
+					// "/auth/refresh" 외형상 permitAll이지만, 실질적 인증은 refreshToken 검증으로 하고 있는 구조
 					"/boards.html",
 					"/h2-console/**",
 					"/css/**",
@@ -64,6 +66,8 @@ public class SecurityConfig {
 				).permitAll()
 				.anyRequest().authenticated()
 			)
+			// H2 콘솔용 frame 허용/ 개발용이라 다시 닫아줌 frame 허용은 제거하는게 좋다
+//			.headers(headers -> headers.frameOptions(frame -> frame.disable()))
 			.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
 		return http.build();

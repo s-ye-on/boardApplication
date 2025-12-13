@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 
-// 인증 실패 응답 처리
+// 인증 실패 응답 처리 401
 @Component // Spring Security가 인증 실패할 때 자동으로 호출되는 컴포넌트
 public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
 

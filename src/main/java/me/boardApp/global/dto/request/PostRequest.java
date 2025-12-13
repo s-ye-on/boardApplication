@@ -20,9 +20,10 @@ public sealed interface PostRequest extends BoardRequest
 		String title,
 
 		@NotBlank(message = "내용 입력은 필수 입니다")
-		@Size(max= 1000, message = "내용은 최대 1000자까지 가능합니다")
+		@Size(max = 1000, message = "내용은 최대 1000자까지 가능합니다")
 		String text
-	)implements PostRequest{}
+	) implements PostRequest {
+	}
 
 	record Update(
 		@NotBlank(message = "비밀번호 입력은 필수 입니다")
@@ -37,10 +38,12 @@ public sealed interface PostRequest extends BoardRequest
 		String text
 
 	)
-	implements PostRequest{}
+		implements PostRequest {
+	}
 
 	record Delete(
 		@NotBlank(message = "비밀번호 입력은 필수 입니다")
 		String password
-	)implements PostRequest{}
+	) implements PostRequest {
+	}
 }

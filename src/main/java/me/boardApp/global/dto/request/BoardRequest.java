@@ -9,7 +9,7 @@ import me.boardApp.domain.board.Board;
 public sealed interface BoardRequest
 	permits BoardRequest.Create, BoardRequest.Update,
 	PostRequest {
-		// enum class란? enumerate(열거하다) 열거형
+	// enum class란? enumerate(열거하다) 열거형
 	// enum의 재밌는 속성 -> singleton (바뀌지 않음. 애플리케이션이 종료되는 순간까지 모든 instance(메모리)가 같음)
 	// enum 간의 비교 -> Object.equals(), '==' (O)
 

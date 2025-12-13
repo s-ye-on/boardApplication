@@ -2,7 +2,7 @@ package me.boardApp.global.exception;
 
 public class UserException extends ApiException {
 
-	public UserException(ExceptionCode code){
+	public UserException(ExceptionCode code) {
 		super(code);
 	}
 

@@ -24,6 +24,9 @@ public class JwtTokenProvider {
 	@Value("${app.jwt.expiration-seconds}")
 	private long tokenValidityInSeconds;
 
+	@Value("${app.jwt.refresh-expiration-seconds}")
+	private long refreshTokenValidityInSeconds;
+
 	private Key key;
 
 	// 서버가 시작될 때 init()가 실행되어 JWT 서명에 필요한 Key 객체를 미리 생성해둠
@@ -34,6 +37,7 @@ public class JwtTokenProvider {
 		this.key = Keys.hmacShaKeyFor(secretKeyPlain.getBytes());
 	}
 
+	// Access Token
 	// JWt를 생성하는 메서드
 	public String generateAccessToken(Long userId, String email, String role) {
 		long now = System.currentTimeMillis();
@@ -43,6 +47,19 @@ public class JwtTokenProvider {
 			.setSubject(String.valueOf(userId))    // sub : 유저 ID
 			.claim("email", email)
 			.claim("role", role)
+			.setIssuedAt(new Date(now))
+			.setExpiration(validity)
+			.signWith(key, SignatureAlgorithm.HS256)
+			.compact();
+	}
+
+	//Refresh Token - 보통 subject만 써도 충분함
+	public String generateRefreshToken(Long userId) {
+		long now = System.currentTimeMillis();
+		Date validity = new Date(now + refreshTokenValidityInSeconds * 1000);
+
+		return Jwts.builder()
+			.setSubject(String.valueOf(userId))
 			.setIssuedAt(new Date(now))
 			.setExpiration(validity)
 			.signWith(key, SignatureAlgorithm.HS256)

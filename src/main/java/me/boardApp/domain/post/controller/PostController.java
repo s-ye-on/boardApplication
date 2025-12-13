@@ -56,7 +56,7 @@ public class PostController {
 	@GetMapping("/cursor")
 	public List<PostResponse.Read> getPosts(
 		@RequestParam(required = false) Long lastPostId,
-		@PageableDefault(size = 10, sort = "id",  direction = Sort.Direction.DESC) Pageable pageable) {
+		@PageableDefault(size = 10, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
 
 		return postService.readAllPostsCursor(lastPostId, pageable);
 	}
@@ -93,8 +93,8 @@ public class PostController {
 	// 그렇다면 @PageableDefault 붙여주는게 안전하고 자연스러움
 	@GetMapping("/search")
 	public Page<PostResponse.Read> getPostsByTitle(@RequestParam String title,
-																								@PageableDefault(size = 10, sort = "createdDate", direction = Sort.Direction.DESC)
-																								Pageable pageable) {
+																								 @PageableDefault(size = 10, sort = "createdDate", direction = Sort.Direction.DESC)
+																								 Pageable pageable) {
 		return postService.readByTitle(title, pageable);
 	}
 

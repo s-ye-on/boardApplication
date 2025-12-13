@@ -38,7 +38,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 		// Authorization 헤더가 없으면 이 필터는 건너 뛰고, 나머지 체인에 맡긴다
 		// 토큰 없는 요청은 익명 요청으로 두고, 다음 필터로 넘김 나중에 시큐리티가 401/403 판단
 		// 이렇게 해야 /login 같은 공용 API 호출 가능
-		if(authHeader == null || !authHeader.startsWith("Bearer ")) {
+		if (authHeader == null || !authHeader.startsWith("Bearer ")) {
 			filterChain.doFilter(request, response);
 			return;
 		}
@@ -56,9 +56,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 			// null 반환이 아니라 예외를 던져서 처리하는걸로 수정해서 막자
 			// 삭제된 유저의 토큰까지 막기
 			User user = userRepository.findById(userId)
-				.orElseThrow(()-> new AuthorizationException(ExceptionCode.TOKEN_INVALID));
+				.orElseThrow(() -> new AuthorizationException(ExceptionCode.TOKEN_INVALID));
 
-			if(user != null){
+			if (user != null) {
 				// User 엔티티 -> Spring Security UserDetails로 변환
 				CustomUserDetails principal = new CustomUserDetails(user);
 

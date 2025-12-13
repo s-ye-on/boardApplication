@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 public class UserService {
 	private final UserRepository userRepository;
 	private final PasswordEncoder passwordEncoder;
+
 	/// todo : user response 만들기
 	/// 지금은 user 엔티티 자체를 반환해서 비밀번호나 개인정보가 보여질 위험이 있음
 	/// 이거 사실 userDetails로 반환하면 되지 않나?
@@ -29,7 +30,7 @@ public class UserService {
 		// 중복 계정 여부 확인
 		/// todo : 나중에 이 부분 커스텀 어노테이션 만들어보기
 		///  @UniqueNickname만들어서 dto에 붙이면 검증 로직이 dto쪽에서 알아서 해줌
-		if(userRepository.existsByNickname(request.nickName())){
+		if (userRepository.existsByNickname(request.nickName())) {
 			throw new UserException(ExceptionCode.DUPLICATE_NICKNAME);
 		}
 
@@ -54,7 +55,7 @@ public class UserService {
 		user.validateRealName(request.realName());
 
 		boolean existNickname = userRepository.findByNickname(request.nickname()).isPresent();
-		if(existNickname) {
+		if (existNickname) {
 			throw new UserException(ExceptionCode.DUPLICATE_NICKNAME);
 		}
 
@@ -70,8 +71,8 @@ public class UserService {
 		User user = userRepository.findByEmail(request.email())
 			.orElseThrow(() -> new UserException(ExceptionCode.NOT_FOUND_USER));
 
-		if(!passwordEncoder.matches(request.password(), user.getPassword())) {
-			throw(new UserException(ExceptionCode.INVALID_PASSWORD));
+		if (!passwordEncoder.matches(request.password(), user.getPassword())) {
+			throw (new UserException(ExceptionCode.INVALID_PASSWORD));
 		}
 		return new UserResponse.Login(user.getId(), user.getNickname(), SuccessMessage.LOGIN_SUCCESS.getMessage());
 	}

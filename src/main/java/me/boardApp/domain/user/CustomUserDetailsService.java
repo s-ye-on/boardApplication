@@ -19,7 +19,7 @@ public class CustomUserDetailsService implements UserDetailsService {
 	public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
 		// username에는 /login 폼에서 입력한 값이 들어옴
 		User user = userRepository.findByEmail(username)
-			.orElseThrow(()-> new UserException(ExceptionCode.NOT_FOUND_USER));
+			.orElseThrow(() -> new UserException(ExceptionCode.NOT_FOUND_USER));
 
 		return new CustomUserDetails(user);
 	}

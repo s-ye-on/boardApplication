@@ -1,5 +1,7 @@
 # Repository Guidelines
 - 모든 답변은 한국어로 한다.
+- 코드 수정 시 항상 나에게 먼저 묻고 수정한다.
+- 코드를 어떻게 수정할건지 항상 먼저 보여줄 것.
 
 ## Project Structure & Module Organization
 - Backend is Spring Boot (Java 21) with Gradle wrapper. Main code lives in `src/main/java/me/boardApp` with domain-focused packages (`domain`, `auth`, `authorization`, `filter`, `idempotency`, `config`, `global`, `temp`).

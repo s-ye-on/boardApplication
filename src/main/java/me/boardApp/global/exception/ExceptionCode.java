@@ -40,7 +40,7 @@ public enum ExceptionCode {
 	NOT_FOUND_BOARD(HttpStatus.NOT_FOUND, "게시판이 존재하지 않습니다"),
 	NOT_FOUND_TEMP_BOARD(HttpStatus.NOT_FOUND, "임시 게시판이 존재하지 않습니다"),
 	NOT_FOUND_COMMENT(HttpStatus.NOT_FOUND, "존재하지 않는 댓글입니다"),
-	NOT_FOUND_POST(HttpStatus.NOT_FOUND,"게시글이 존재하지 않습니다"),
+	NOT_FOUND_POST(HttpStatus.NOT_FOUND, "게시글이 존재하지 않습니다"),
 	NOT_FOUND_NICKNAME(HttpStatus.NOT_FOUND, "존재하지 않는 닉네임 입니다"),
 	NOT_FOUND_USER(HttpStatus.NOT_FOUND, "가입하신 아이디가 존재하지 않습니다"),
 	NOT_FOUND_NOTICE_POST(HttpStatus.NOT_FOUND, "공지글이 존재하지 않습니다"),

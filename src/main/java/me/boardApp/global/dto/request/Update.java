@@ -18,7 +18,8 @@ public sealed interface Update extends UserRequest
 
 		@NotBlank
 		String password
-		)implements Update{}
+	) implements Update {
+	}
 
 	record Password(
 		@NotBlank
@@ -29,5 +30,6 @@ public sealed interface Update extends UserRequest
 
 		@NotBlank
 		String newPassword
-	) implements Update{}
+	) implements Update {
+	}
 }

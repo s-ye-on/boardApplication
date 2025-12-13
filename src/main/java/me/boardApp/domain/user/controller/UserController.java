@@ -72,8 +72,8 @@ public class UserController {
 
 	@GetMapping("/{userNickname}/posts")
 	public Page<PostResponse.Read> getUserPosts(@PathVariable String userNickname,
-																						 @PageableDefault(size= 10, sort = "createdDate", direction = Sort.Direction.DESC)
-																						 Pageable pageable) {
+																							@PageableDefault(size = 10, sort = "createdDate", direction = Sort.Direction.DESC)
+																							Pageable pageable) {
 		return postService.readByWriter(userNickname, pageable);
 	}
 

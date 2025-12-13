@@ -29,6 +29,7 @@ public class CommentService {
 	private final AuthorizationService authorizationService;
 
 	// Create
+
 	/// todo : comment도 마찬가지로 지금 닉네임 비밀번호만 일치 시키면 타인의 이름으로 글 쓸 수 있음
 	public CommentResponse.Create create(Long postId, CommentRequest.Create request, Long currentUserId) {
 		Post post = commonService.getPostById(postId);
@@ -106,7 +107,7 @@ public class CommentService {
 	// Update
 	public CommentResponse.Update update(Long commentId, CommentRequest.Update request, Long currentUserId) {
 		Comment target = commentRepository.findById(commentId)
-			.orElseThrow(()-> new CommentException(ExceptionCode.NOT_FOUND_COMMENT));
+			.orElseThrow(() -> new CommentException(ExceptionCode.NOT_FOUND_COMMENT));
 
 		User writer = target.getUser();
 		User currentUser = commonService.getUserById(currentUserId);
@@ -135,7 +136,7 @@ public class CommentService {
 	// Delete
 	public void deleteByCommentId(Long id, CommentRequest.Delete request, Long currentUserId) {
 		Comment target = commentRepository.findById(id)
-			.orElseThrow(()-> new CommentException(ExceptionCode.NOT_FOUND_COMMENT));
+			.orElseThrow(() -> new CommentException(ExceptionCode.NOT_FOUND_COMMENT));
 
 		User writer = target.getUser();
 
@@ -149,7 +150,7 @@ public class CommentService {
 		currentUser.validatePassword(request.password(), passwordEncoder);
 
 		// 4. 삭제
-			// Post쪽의 컬렉션에서만 삭제해줘도 orphanRemoval이 걸려있어서 commentRepository에 있는 comment도 자동으로 삭제 됨
+		// Post쪽의 컬렉션에서만 삭제해줘도 orphanRemoval이 걸려있어서 commentRepository에 있는 comment도 자동으로 삭제 됨
 //		commentRepository.delete(target);
 		///  todo : 엔티티쪽에 헬퍼 메서드를 둬서 양방향 연관관계 정리하는거 만들어주자 (target.removeFromRelations())
 		/// 이렇게 하면 서비스 코드에서 연관관계에 대해 세부 구현(user, post 컬렉션) 을 몰라도 됨
@@ -181,7 +182,7 @@ public class CommentService {
 
 		currentUser.validatePassword(request.password(), passwordEncoder);
 
-		for(Comment comment : allComments) {
+		for (Comment comment : allComments) {
 			// db에서 지워주는게 아니라 컬렉션에서 지워주면 부모(Post)에서 지워주면 orphanRemoval로 깔끔함
 			comment.getPost().getComments().remove(comment);
 			// user 컬렉션은 직접 지워주는게 필수는 아님

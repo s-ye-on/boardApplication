@@ -57,7 +57,7 @@ public class User extends BaseEntity {
 	@OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
 	private List<Comment> comments = new ArrayList<>();
 
-	public User(String realName, String nickname, String password,  String email) {
+	public User(String realName, String nickname, String password, String email) {
 		this.realName = realName;
 		this.nickname = nickname;
 		this.password = password;
@@ -80,8 +80,8 @@ public class User extends BaseEntity {
 		}
 	}
 
-	public void validateNickname(String nickname){
-		if(!nickname.equals(this.nickname)){
+	public void validateNickname(String nickname) {
+		if (!nickname.equals(this.nickname)) {
 			throw new UserException(ExceptionCode.INVALID_NICKNAME);
 		}
 	}
@@ -98,14 +98,14 @@ public class User extends BaseEntity {
 //		}
 //	}
 
-	public void validatePassword(String password,  PasswordEncoder passwordEncoder) {
+	public void validatePassword(String password, PasswordEncoder passwordEncoder) {
 		if (!passwordEncoder.matches(password, this.password)) {
 			throw new UserException(ExceptionCode.INVALID_PASSWORD);
 		}
 	}
 
-	public void validateEmail(String email){
-		if(!this.getEmail().equals(email)){
+	public void validateEmail(String email) {
+		if (!this.getEmail().equals(email)) {
 			throw new UserException(ExceptionCode.INVALID_EMAIL);
 		}
 	}
@@ -132,12 +132,12 @@ public class User extends BaseEntity {
 		this.validateRealName(request.realName());
 	}
 
-	public void inactivate(){
+	public void inactivate() {
 		this.status = Status.INACTIVATION;
 		this.nickname = "탈퇴한 회원" + this.getId();
 	}
 
-	public void activate(String nickname){
+	public void activate(String nickname) {
 		this.status = Status.ACTIVATION;
 		this.nickname = nickname;
 	}
@@ -147,6 +147,7 @@ public class User extends BaseEntity {
 		ACTIVATION,
 		INACTIVATION
 	}
+
 	// enum 정해진 개수의 상태값 중 하나
 	// record 여러 값을 묶은 불변 데이터 구조(DTO,응답 객체, 복합 값 표현)
 	public enum Role {

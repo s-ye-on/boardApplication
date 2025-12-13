@@ -34,13 +34,13 @@ public class CommonService {
 	// board 관련
 	public Board getBoardById(Long boardId) {
 		return boardRepository.findById(boardId)
-			.orElseThrow(()-> new BoardException(ExceptionCode.NOT_FOUND_BOARD));
+			.orElseThrow(() -> new BoardException(ExceptionCode.NOT_FOUND_BOARD));
 	}
 
 	// post 관련
-	public Post  getPostById(Long postId) {
+	public Post getPostById(Long postId) {
 		return postRepository.findById(postId)
-			.orElseThrow(()-> new PostException(ExceptionCode.NOT_FOUND_POST));
+			.orElseThrow(() -> new PostException(ExceptionCode.NOT_FOUND_POST));
 	}
 
 	// comment 관련
@@ -62,7 +62,7 @@ public class CommonService {
 	}
 
 	public void validateAdmin(User user) {
-		if(!user.isAdmin()) {
+		if (!user.isAdmin()) {
 			throw new UserException(ExceptionCode.FORBIDDEN_ADMIN);
 		}
 	}

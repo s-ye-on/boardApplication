@@ -31,13 +31,14 @@ public class PostService {
 	private final AuthorizationService authorizationService;
 
 	// Create
+
 	///  todo : 지금 create도 보면 타인의 닉네임과 비밀번호를 안다면 타인 이름으로 글을 올리 수 있음
 	/// spring security를 이용해 해결해보자
 	/// 관리자의 게시판 개입을 최소화하기 위해 관리자 권한으로는 글 못쓰게 막아둠
 	public PostResponse.Create create(PostRequest.Create request, Long currentUserId) {
 		Board board = commonService.getBoardById(request.boardId());
 
-		User currentUser =  commonService.getUserById(currentUserId);
+		User currentUser = commonService.getUserById(currentUserId);
 		authorizationService.checkUser(currentUser);
 
 		Post post = new Post(
@@ -46,7 +47,7 @@ public class PostService {
 			request.title(),
 			request.text()
 		);
-			// 단방향 전환
+		// 단방향 전환
 //		board.posted(post);
 
 		postRepository.save(post);
@@ -61,7 +62,7 @@ public class PostService {
 
 	public PostResponse.Create createNotice(PostRequest.Create request, Long currentUserId) {
 		Board board = commonService.getBoardById(request.boardId());
-		User currentUser =  commonService.getUserById(currentUserId);
+		User currentUser = commonService.getUserById(currentUserId);
 
 		authorizationService.checkAdmin(currentUser);
 
@@ -123,7 +124,7 @@ public class PostService {
 		return toResponse(post);
 	}
 
-	public List<PostResponse.Read> readAllNoticeByBoardId(Long boardId){
+	public List<PostResponse.Read> readAllNoticeByBoardId(Long boardId) {
 		return postRepository.findALlNoticeByBoardId(boardId)
 			.stream()
 			.map(this::toResponse)
@@ -133,7 +134,7 @@ public class PostService {
 	// 게시판의 글을 조회하는 것 -> 게시판의 책임이 맞지만
 	// 실제 글 조회는 Post Entity와 PostRepository에서 일어나서 여기다 두는게 맞음
 	// 이거 N+1 터질거 같음 ㅋㅋ
-	public Page<PostResponse.Read> readAllByBoardId(Long boardId,  Pageable pageable) {
+	public Page<PostResponse.Read> readAllByBoardId(Long boardId, Pageable pageable) {
 		//게시판 존재 여부 확인
 		commonService.getBoardById(boardId);
 
@@ -165,7 +166,7 @@ public class PostService {
 
 	private Post getEntityByPostId(Long postId) {
 		return postRepository.findById(postId)
-			.orElseThrow(()-> new PostException(ExceptionCode.NOT_FOUND_POST));
+			.orElseThrow(() -> new PostException(ExceptionCode.NOT_FOUND_POST));
 	}
 
 	// Update
@@ -205,8 +206,8 @@ public class PostService {
 	// 원래는 notice 엔티티에 update를 오버라이딩해서 검증하려했는데 삭제할 때도 검증해야하기때문에 검증을 service에 만들자
 	// 이제 검증을 authorizationService에서 하고 있으니 필요 없을 듯
 	private void validateUpdateDeletePermission(Post post, User currentUser) {
-		if(post instanceof Notice) {
-			if(!currentUser.isAdmin()){
+		if (post instanceof Notice) {
+			if (!currentUser.isAdmin()) {
 				throw new NoticeException(ExceptionCode.FORBIDDEN_ADMIN);
 			}
 		}
