@@ -45,27 +45,37 @@ public class AuthService {
 			user.getRole().name()
 		);
 
-		// 3-1. 추가 : Refresh Token 생성
+		// 4. 기존 refresh token 전부 REVOKE
+		refreshTokenRepository.findAllByUserAndStatus(user, RefreshToken.Status.ACTIVE)
+			.forEach(RefreshToken::revoke);
+
+		// 5. 새 refresh token 생성
 		String refreshTokenValue = jwtTokenProvider.generateRefreshToken(user.getId());
 
 		// refresh token 만료 기간 계산
 		LocalDateTime refreshExpiry = jwtTokenProvider.calculateRefreshExpiry();
 
-		// 3-2 : Refresh Token DB 저장/업데이트 (만료 계산은 JwtTokenProvider에서 처리)
-		RefreshToken refreshToken = refreshTokenRepository.findTopByUserOrderByIdDesc(user)
-			.map(rt -> {
-				rt.rotate(refreshTokenValue, refreshExpiry);
-				return rt;
-			})
-			.orElseGet(() -> RefreshToken.create(
-				user,
-				refreshTokenValue,
-				refreshExpiry
-			));
+		// login 시 새 refresh 토큰으로 기존것을 덮는 방식이었음. 재사용 감지 불가!
+		// Refresh Token DB 저장/업데이트 (만료 계산은 JwtTokenProvider에서 처리)
+//		RefreshToken refreshToken = refreshTokenRepository.findTopByUserOrderByIdDesc(user)
+//			.map(rt -> {
+//				rt.rotate(refreshTokenValue, refreshExpiry);
+//				return rt;
+//			})
+//			.orElseGet(() -> RefreshToken.create(
+//				user,
+//				refreshTokenValue,
+//				refreshExpiry
+//			));
+		RefreshToken refreshToken = RefreshToken.create(
+			user,
+			refreshTokenValue,
+			refreshExpiry
+		);
 
 		refreshTokenRepository.save(refreshToken);
 
-		// 4. 응답 dto 생성
+		// 6. 응답 dto 생성
 		AuthResponse.Login loginResponse = new AuthResponse.Login(
 			user.getId(),
 			user.getEmail(),
@@ -76,6 +86,31 @@ public class AuthService {
 		);
 
 		return loginResponse;
+	}
+
+	public void logout(String refreshTokenValue) {
+
+		// 1. refresh token JWT 자체 검증
+		jwtTokenProvider.validateToken(refreshTokenValue);
+
+		// 2. DB에서 refresh token 조회
+		RefreshToken refreshToken = refreshTokenRepository.findByToken(refreshTokenValue)
+			.orElseThrow(() -> new AuthorizationException(ExceptionCode.TOKEN_INVALID));
+
+		// 3. 이미 revoke 상태면 그대로 종료 (idempotent)
+		if (refreshToken.getStatus() == RefreshToken.Status.REVOKED) {
+			return;
+		}
+
+		// 4. revoke 처리
+		refreshToken.revoke();
+		refreshTokenRepository.save(refreshToken);
+	}
+
+	// 나중에 관리자 기능/ 비밀번호 변경 시 사용하기 위해 만들어둠
+	public void logoutAll(User user){
+		refreshTokenRepository.findAllByUserAndStatus(user, RefreshToken.Status.ACTIVE)
+			.forEach(RefreshToken::revoke);
 	}
 
 	public AuthResponse.Login refresh(RefreshRequest request) {

@@ -90,8 +90,17 @@
 
     // 4. 로그아웃 버튼
     document.getElementById('logout-btn').addEventListener('click', () => {
-        localStorage.removeItem('accessToken');
-        window.location.href = '/login';
+        const refreshToken = localStorage.getItem('refreshToken');
+
+        fetch('/auth/logout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refreshToken })
+        }).finally(() => {
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            window.location.href = '/login';
+        });
     });
 
     // 초기 로드

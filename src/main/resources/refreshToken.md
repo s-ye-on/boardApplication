@@ -264,3 +264,34 @@ findByUserAndDeviceId(user, deviceId)
 - 해당 deviceId 범위에서만 revoke
 - 다른 기기는 영향 없음
 
+이 프로젝트는 Spring Security + JWT 기반의 인증/인가 구조를 사용했습니다  
+보안 안정성과 설계 명확성을 우선으로 하여 단일 Refresh Token 전략 + Rotation + 재사용 감지를 적용했습니다.
+
+## 로그아웃의 책임을 user가 아닌 auth 로 이동
+### 기존 
+customUserDetails 기반 로그아웃  
+장점 :
+- 구현이 간단
+- 프론트에서 refresh token을 안보내도 됨
+- "현재 로그인한 사용자"개념에 직관적  
+한계 : 
+- "어떤 세션(토큰)을 로그아웃할지"를 알 수 없음
+- 단일/다중 기기 구분 불가
+- 토큰 탈취 상황에서 정확한 토큰 무효화가 불가능  
+
+즉, 유저는 알지만, 세션(토큰)은 모른다  
+
+### 변경
+Refresh Token 기반 로그아웃 
+```java
+public void logout(String refreshTokenValue)
+```
+장점 : 
+- 정확히 이 토큰을 무효화
+- 단일/다중 기기 모두 확장 가능
+- 재사용 감지 / 보안 이벤트 기록 가능
+- JWT 철학과 맞음 (stateless + server-side control)  
+단점 :
+- 프론트에서 refresh token을 보내야함
+- 코드가 조금 더 복잡 
+- -> 이런 복잡함은 보안 비용이라 생각함
