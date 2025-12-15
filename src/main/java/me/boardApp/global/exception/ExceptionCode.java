@@ -55,7 +55,11 @@ public enum ExceptionCode {
 	CANNOT_UPDATE_TEMP_BOARD(HttpStatus.CONFLICT, "임시 게시판은 수정할 수 없습니다."),
 	CANNOT_COMMENT_NOTICE_POST(HttpStatus.CONFLICT, "공지글에는 댓글을 작성할 수 없습니다"),
 
-	;
+
+	// 423
+	// LOCKED
+	// 계정 자체가 잠긴 상태
+	LOCKED_ACCOUNT(HttpStatus.LOCKED, "계정이 잠겨 있습니다. 본인 인증이 필요합니다");
 
 	private final HttpStatus status;
 	private final String message;

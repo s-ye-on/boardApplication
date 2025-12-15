@@ -142,10 +142,19 @@ public class User extends BaseEntity {
 		this.nickname = nickname;
 	}
 
+	public void lock() {
+		this.status = Status.LOCKED;
+	}
+
+	public boolean validActivate() {
+		return this.status == Status.ACTIVATION;
+	}
+
 	// soft delete에서 사용
 	public enum Status {
 		ACTIVATION,
-		INACTIVATION
+		INACTIVATION,
+		LOCKED
 	}
 
 	// enum 정해진 개수의 상태값 중 하나

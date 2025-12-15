@@ -3,6 +3,8 @@ package me.boardApp.domain.user.service;
 import jakarta.servlet.http.HttpSession;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import me.boardApp.auth.token.RefreshTokenRepository;
 import me.boardApp.domain.user.dto.UserResponse;
 import me.boardApp.global.response.SuccessMessage;
 import me.boardApp.global.exception.CommentException;
@@ -14,12 +16,14 @@ import me.boardApp.domain.user.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Transactional
 @Service
 @RequiredArgsConstructor
 public class UserService {
 	private final UserRepository userRepository;
 	private final PasswordEncoder passwordEncoder;
+	private final RefreshTokenRepository refreshTokenRepository;
 
 	/// todo : user response 만들기
 	/// 지금은 user 엔티티 자체를 반환해서 비밀번호나 개인정보가 보여질 위험이 있음
@@ -109,6 +113,8 @@ public class UserService {
 	}
 
 	public void updatePassword(UserRequest.UpdatePassword request, Long currentUserId) {
+		log.info("비밀번호 변경 시도 : userId = {}", currentUserId);
+
 		User currentUser = userRepository.findById(currentUserId)
 			.orElseThrow(() -> new UserException(ExceptionCode.NOT_FOUND_USER));
 
@@ -116,6 +122,11 @@ public class UserService {
 
 		String encodedPassword = passwordEncoder.encode(request.newPassword());
 		currentUser.updatePassword(encodedPassword);
+
+		// 비밀번호 변경 시 전체 세션 파괴 -> 전체 refresh token revoke
+		refreshTokenRepository.revokeAllByUser(currentUser);
+
+		log.info("비밀번호 변경 완료 : userId = {}", currentUserId);
 	}
 
 	public void updateEmail(UserRequest.UpdateEmail request, Long currentUserId) {
