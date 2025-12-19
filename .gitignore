@@ -1,6 +1,7 @@
 HELP.md
 idempotency.md
 AGENTS.md
+/docs/jwtMdSeries/memo.md
 
 .gradle
 build/

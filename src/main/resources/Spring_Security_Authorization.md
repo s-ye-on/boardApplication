@@ -1,4 +1,4 @@
-# warp 굳
+# 메서드 보안을 어떻게 실무에서 사용할까? 
 
 # 특정 API에 역할별 권한 걸기 (예: ADMIN만 가능)
 이미 User 엔티티에 Role enum이 있고 (USER, ADMIN), </br>
@@ -147,7 +147,7 @@ public void delete(@PathVariable Long id) {
     - BoardService 입장에서는
     - "여기까지 들어온 호출은 이미 '권한이 있는' 사용자다"라고 가정하고 순수 도메인 로직만 작성하면 됨
 
-### 그럼 어떤게 정답?
+### 그럼 어떤게 정답? 블로그 
 실무에서는 둘을 섞어 쓰는 경우가 많음
 - "이 API에 접근할 수 있는지" (경비 아저씨 역할)
     - Spring Security / @PreAuthorize / URL 메서드 보안
@@ -159,8 +159,9 @@ public void delete(@PathVariable Long id) {
 ```java
 @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
 @DeleteMapping("/posts/{id}")
-public void deletePost(@PathVariable Long id,
-											 @AuthenticationPrincipal CustomUserDetails principal) {
+public void deletePost(
+	@PathVariable Long id,
+        @AuthenticationPrincipal CustomUserDetails principal) {
 	postService.deletePost(id, principal.getId());
 }
 ```

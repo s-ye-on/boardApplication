@@ -203,7 +203,7 @@ Authorization: Bearer <refresh-token>
 
 결과 : 
 - 노트북의 refresh token A -> 무효 
-- 모바ㅣㅇㄹ로만 로그인 유지  
+- 모바일로만 로그인 유지  
 즉 , 가장 마지막 로그인만 유효 
 
 #### Refresh Token 유저당 하나만 유지했을 때의 장점
