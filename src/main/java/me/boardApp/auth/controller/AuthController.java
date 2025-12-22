@@ -1,5 +1,6 @@
 package me.boardApp.auth.controller;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import me.boardApp.auth.AuthService;
@@ -8,6 +9,8 @@ import me.boardApp.auth.dto.RefreshRequest;
 import me.boardApp.domain.user.CustomUserDetails;
 import me.boardApp.global.dto.request.UserRequest;
 import me.boardApp.global.response.SuccessMessage;
+import me.boardApp.log.ClientContextFilter;
+import me.boardApp.log.dto.ClientContext;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -23,8 +26,18 @@ public class AuthController {
 	// 현재 여기 있는 login은 jwt 기반 로그인, UserController에 있는 login은 세션/응답 dto 기반의 로그인 API
 	// 이메일/비밀번호로 JWT 발급
 	@PostMapping("/login")
-	public ResponseEntity<AuthResponse.Login> login(@RequestBody @Valid UserRequest.Login request) {
-		AuthResponse.Login response = authService.login(request);
+	public ResponseEntity<AuthResponse.Login> login(
+		@RequestBody @Valid UserRequest.Login request,
+		HttpServletRequest servletRequest
+	) {
+		// clientContext는 필터에서만 생성하고,
+		// Controller가 ClientContext를 꺼냄
+		// Service 는 HTTP를 모른다
+		// clientContext는 그냥 "환경 정보 DTO" 일 뿐
+		// 필터가 넣는 키니까 필터가 상수 정의 후 가져다 씀
+		ClientContext context = (ClientContext) servletRequest.getAttribute(ClientContextFilter.CLIENT_CONTEXT_KEY);
+
+		AuthResponse.Login response = authService.login(request, context);
 
 		return ResponseEntity
 			.status(SuccessMessage.LOGIN_SUCCESS.getStatus())

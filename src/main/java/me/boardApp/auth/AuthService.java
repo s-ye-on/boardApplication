@@ -14,6 +14,9 @@ import me.boardApp.global.exception.AuthorizationException;
 import me.boardApp.global.exception.ExceptionCode;
 import me.boardApp.global.exception.UserException;
 import me.boardApp.global.response.SuccessMessage;
+import me.boardApp.log.SecurityEventService;
+import me.boardApp.log.SecurityEventType;
+import me.boardApp.log.dto.ClientContext;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,13 +36,14 @@ public class AuthService {
 	private final RefreshTokenRepository refreshTokenRepository;
 	private final PasswordEncoder passwordEncoder;
 	private final JwtTokenProvider jwtTokenProvider;
+	private final SecurityEventService securityEventService;
 
-	public AuthResponse.Login login(UserRequest.Login request) {
+	public AuthResponse.Login login(UserRequest.Login request, ClientContext clientContext) {
 		log.info("로그인 시도 : userEmail = {}", request.email());
 
 		// 1. 이메일로 사용자 조회
 		User user = userRepository.findByEmail(request.email())
-			.orElseThrow(() -> new UserException(ExceptionCode.NOT_FOUND_USER));
+			.orElseThrow(() -> new UserException(ExceptionCode.USER_VALIDATION_FAILED));
 
 		// 여기에 user 계정의 status가 lock이라면 로그인 실패 후 본인인증 시키게 만들자
 		if (!user.validActivate()) {
@@ -95,6 +99,14 @@ public class AuthService {
 			user.getNickname(),
 			accessToken,
 			refreshTokenValue,
+			SuccessMessage.LOGIN_SUCCESS.getMessage()
+		);
+
+		// 로그 기록
+		securityEventService.record(
+			SecurityEventType.LOGIN_SUCCESS,
+			user.getId(),
+			clientContext,
 			SuccessMessage.LOGIN_SUCCESS.getMessage()
 		);
 

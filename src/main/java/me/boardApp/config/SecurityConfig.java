@@ -5,6 +5,7 @@ import me.boardApp.auth.jwt.JwtAuthenticationEntryPoint;
 import me.boardApp.auth.jwt.JwtAuthenticationFilter;
 import me.boardApp.auth.jwt.JwtTokenProvider;
 import me.boardApp.domain.user.UserRepository;
+import me.boardApp.log.ClientContextFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -31,6 +32,11 @@ public class SecurityConfig {
 	public JwtAuthenticationFilter jwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider,
 																												 UserRepository userRepository) {
 		return new JwtAuthenticationFilter(jwtTokenProvider, userRepository);
+	}
+
+	@Bean
+	public ClientContextFilter clientContextFilter() {
+		return new ClientContextFilter();
 	}
 
 	// 1. 어떤 URL에 보안 걸지 & 로그인 방식 정의
@@ -68,7 +74,8 @@ public class SecurityConfig {
 			)
 			// H2 콘솔용 frame 허용/ 개발용이라 다시 닫아줌 frame 허용은 제거하는게 좋다
 //			.headers(headers -> headers.frameOptions(frame -> frame.disable()))
-			.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+			.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+			.addFilterBefore(clientContextFilter(), JwtAuthenticationFilter.class);
 
 		return http.build();
 	}
