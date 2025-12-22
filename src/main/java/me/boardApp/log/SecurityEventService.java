@@ -18,8 +18,7 @@ public class SecurityEventService {
 	public void record(
 		SecurityEventType type,
 		Long userId,
-		ClientContext context,
-		String message
+		ClientContext context
 	) {
 		if (context == null) {
 			context = ClientContext.system(); // fallback
@@ -29,12 +28,12 @@ public class SecurityEventService {
 			type,
 			userId,
 			context,
-			message
+			type.getMessage()
 		);
 
 		repository.save(event);
 
-		log.info("[SECURITY] {} - userId={}", type, userId);
+		log.info("[SECURITY] [{}] {} - userId={}",type.getSeverity(), type, userId);
 	}
 }
 

@@ -638,3 +638,73 @@ securityEventService.record(
 
 서비스 분리  
 
+
+// 보안 이벤트는 비즈니스 판단이 일어난 지점에서 남긴다 
+
+---
+
+## 지금 SuccessMessage ,SecurityEventType 양쪽에 LOGIN_SUCCESS가 둘 다 있다 
+
+### 1️⃣ 두 enum의 존재 이유 부터 다르다
+#### ✅SuccessMessage
+```java
+public enum SuccessMessage {
+    LOGIN_SUCCESS(HttpStatus.OK, "로그인 성공"),
+    LOGOUT_SUCCESS(HttpStatus.OK, "로그아웃 성공");
+}
+```
+👉 **클라이언트 응답용**  
+
+- REST API 응답 메시지 
+- HTTP Status 포함
+- 사용자 / 프론트엔드가 보는 메시지
+- UX 중심  
+📌 **"요청에 대한 결과를 사용자에게 알려주기 위한 것"**
+
+### ✅SecurityEventType
+```java
+public enum SecurityEventType {
+    LOGIN_SUCCESS("로그인 성공"),
+    LOGIN_FAIL("로그인 실패"),
+    LOCKED_ACCOUNT_LOGIN_ATTEMPT("잠긴 계정 로그인 시도");
+}
+```
+👉 **서버 내부 보안 이벤트 기록용**
+- 감사 로그
+- 침입 탐지
+- 통계 / 알림 / 관리자 분석
+- 사용자에게 직접 노출 ❌  
+📌 **"시스템에서 어떤 보안 사건이 일어났는지 기록하기 위한 것"**
+
+### LOGIN_SUCCESS 결론
+같은 단어를 쓰지만 관심사가 다르다  
+이건 중복이 아니라 의도적인 분리  
+
+### 그럼 로그인 성공 상황에서 둘 다 사용? 
+둘 다 쓴다! 
+```java
+// AuthService
+securityEventService.record(
+    SecurityEventType.LOGIN_SUCCESS,
+    user.getId(),
+    clientContext,
+    "로그인 성공"
+);
+```
+
+```java
+// AuthController
+return ResponseEntity
+    .status(SuccessMessage.LOGIN_SUCCESS.getStatus())
+    .body(response);
+```
+
+하나는 보안 이력 기록  
+하나는 API 응답  
+
+SuccessMessage = **사용자에게 보여줄 말**  
+SecurityEventType = **서버가 기억해야 할 사건**
+
+---
+
+

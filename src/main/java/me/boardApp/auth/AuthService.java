@@ -43,16 +43,42 @@ public class AuthService {
 
 		// 1. 이메일로 사용자 조회
 		User user = userRepository.findByEmail(request.email())
-			.orElseThrow(() -> new UserException(ExceptionCode.USER_VALIDATION_FAILED));
+			.orElseThrow(() -> {
+				securityEventService.record(
+					SecurityEventType.LOGIN_FAIL_UNKNOWN_USER,
+					null,
+					clientContext
+				);
+				return new UserException(ExceptionCode.USER_VALIDATION_FAILED);
+			});
+
 
 		// 여기에 user 계정의 status가 lock이라면 로그인 실패 후 본인인증 시키게 만들자
 		if (!user.validActivate()) {
 			log.warn("잠긴 계정 로그인 시도 userEmail = {}", request.email());
+
+			// 보안 이벤트는 비즈니스 판단이 일어난 지점에서 남긴다
+			securityEventService.record(
+				SecurityEventType.LOCKED_ACCOUNT_LOGIN_ATTEMPT,
+				user.getId(),
+				clientContext
+			);
+
 			throw new AuthorizationException(ExceptionCode.LOCKED_ACCOUNT);
 		}
 
 		// 2. 비밀번호 검증
-		user.validatePassword(request.password(), passwordEncoder);
+		try {
+			user.validatePassword(request.password(), passwordEncoder);
+		} catch (UserException e) {
+			securityEventService.record(
+				SecurityEventType.LOGIN_FAIL,
+				user.getId(),
+				clientContext
+			);
+
+			throw e;
+		}
 
 		// 3. JWT Access Token 생성
 		String accessToken = jwtTokenProvider.generateAccessToken(
@@ -106,21 +132,30 @@ public class AuthService {
 		securityEventService.record(
 			SecurityEventType.LOGIN_SUCCESS,
 			user.getId(),
-			clientContext,
-			SuccessMessage.LOGIN_SUCCESS.getMessage()
+			clientContext
 		);
 
 		return loginResponse;
 	}
 
-	public void logout(String refreshTokenValue) {
+	public void logout(String refreshTokenValue, ClientContext clientContext) {
 
 		// 1. refresh token JWT 자체 검증
 		jwtTokenProvider.validateToken(refreshTokenValue);
 
 		// 2. DB에서 refresh token 조회
 		RefreshToken refreshToken = refreshTokenRepository.findByToken(refreshTokenValue)
-			.orElseThrow(() -> new AuthorizationException(ExceptionCode.TOKEN_INVALID));
+			.orElseThrow(() -> {
+				securityEventService.record(
+					SecurityEventType.LOGOUT_FAILED_INVALID_TOKEN,
+					// 여기서 userId를 null로 준 이유는
+					// db에 없거나 유효하지 않으면 어떤 사용자에 속한 요청인지 특정할 수 없음
+					// 실제 사용자 ID를 확정할 수 있는 경우(토큰 조회 성공)엔 그때 userId를 기록하는게 맞음
+					null,
+					clientContext
+				);
+				return new AuthorizationException(ExceptionCode.TOKEN_INVALID);
+			});
 
 		// 3. 이미 revoke 상태면 그대로 종료 (idempotent)
 		if (refreshToken.getStatus() == RefreshToken.Status.REVOKED) {
@@ -130,6 +165,12 @@ public class AuthService {
 		// 4. revoke 처리
 		refreshToken.revoke();
 		refreshTokenRepository.save(refreshToken);
+
+		securityEventService.record(
+			SecurityEventType.LOGOUT_SUCCESS,
+			refreshToken.getUser().getId(),
+			clientContext
+		);
 	}
 
 	// 나중에 관리자 기능/ 비밀번호 변경 시 사용하기 위해 만들어둠
@@ -138,7 +179,7 @@ public class AuthService {
 			.forEach(RefreshToken::revoke);
 	}
 
-	public AuthResponse.Login refresh(RefreshRequest request) {
+	public AuthResponse.Login refresh(RefreshRequest request, ClientContext clientContext) {
 		String refreshTokenValue = request.refreshToken();
 
 		// JWT 자체 서명/만료 검증
@@ -154,6 +195,13 @@ public class AuthService {
 		// 공격자가 refresh만 계속 찌르는거 방지
 		if (!user.validActivate()) {
 			log.warn("잠긴 계정 refresh 시도 userId={}", user.getId());
+
+			securityEventService.record(
+				SecurityEventType.LOCKED_ACCOUNT_REFRESH_ATTEMPT,
+				user.getId(),
+				clientContext
+			);
+
 			throw new AuthorizationException(ExceptionCode.LOCKED_ACCOUNT);
 		}
 
@@ -205,7 +253,14 @@ public class AuthService {
 		// 보안 정책을 1로 유지하려면 : REVOKED_BY_ROTATION , REVOKED_BY_LOGIN 로 분리해야 함
 		if (refreshToken.getStatus() == RefreshToken.Status.REVOKED) {
 			user.lock();
+
 			log.warn("Refresh Token 재사용 감지 -> 계정 잠금 userId ={}", refreshToken.getUser().getId());
+
+			securityEventService.record(
+				SecurityEventType.REFRESH_REUSED,
+				user.getId(),
+				clientContext
+			);
 
 			// refresh token 전부 revoke
 			refreshTokenRepository.revokeAllByUser(refreshToken.getUser());

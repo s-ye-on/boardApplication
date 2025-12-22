@@ -19,6 +19,9 @@ public class SecurityEvent {
 	@Enumerated(EnumType.STRING)
 	private SecurityEventType type;
 
+	@Enumerated(EnumType.STRING)
+	private SecuritySeverity severity;
+
 	private Long userId; // null 가능 (인증 전 실패)
 	// userId가 null일 수 있는 이유
 	// 로그인 실패 , 토큰 위조, 인증 이전 단계
@@ -44,6 +47,7 @@ public class SecurityEvent {
 	) {
 		SecurityEvent event = new SecurityEvent();
 		event.type = type;
+		event.severity = type.getSeverity();
 		event.userId = userId;
 		event.ipAddress = clientContext.ipAddress();
 		event.userAgent = clientContext.userAgent();

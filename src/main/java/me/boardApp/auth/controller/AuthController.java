@@ -35,6 +35,10 @@ public class AuthController {
 		// Service 는 HTTP를 모른다
 		// clientContext는 그냥 "환경 정보 DTO" 일 뿐
 		// 필터가 넣는 키니까 필터가 상수 정의 후 가져다 씀
+		// 필터에서 분명 ClientContext 형으로 저장했는데 Controller에서 왜 형변환을 해줘야하나?
+		// -> getAttribute()는 무조건 Object를 반환함
+		// ClientContext인지 모름 -> 명시적 형변환 필요
+		// 재변환이 아니라, 같은 객체를 같은 참조로 타입만 알려주는 것 -> 이 Object를 ClientContext로 다뤄도 된다고 컴파일러에게 알려준 것
 		ClientContext context = (ClientContext) servletRequest.getAttribute(ClientContextFilter.CLIENT_CONTEXT_KEY);
 
 		AuthResponse.Login response = authService.login(request, context);
@@ -55,8 +59,14 @@ public class AuthController {
 
 	// refresh 요청
 	@PostMapping("/refresh")
-	public ResponseEntity<AuthResponse.Login> refresh(@RequestBody @Valid RefreshRequest request) {
-		AuthResponse.Login response = authService.refresh(request);
+	public ResponseEntity<AuthResponse.Login> refresh(
+		@RequestBody @Valid RefreshRequest request,
+		HttpServletRequest servletRequest) {
+
+		ClientContext context = (ClientContext) servletRequest.getAttribute(ClientContextFilter.CLIENT_CONTEXT_KEY);
+
+		AuthResponse.Login response = authService.refresh(request, context);
+
 		return ResponseEntity.ok(response);
 	}
 

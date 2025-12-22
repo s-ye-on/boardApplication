@@ -30,6 +30,7 @@ public record ClientContext(
 	// 요청 파싱 책임이 dto에 있음
 	private static String extractIp(HttpServletRequest request) {
 		// 프록시/로드밸런서 환경 고려 (?)
+		// 여러 프록시를 거쳐오면 ip 주소가 달라지는데 앞에게 진짜라고 함
 		String forwarded = request.getHeader("X-Forwarded-For");
 		if (forwarded != null && !forwarded.isBlank()) {
 			return forwarded.split(",")[0].trim();
