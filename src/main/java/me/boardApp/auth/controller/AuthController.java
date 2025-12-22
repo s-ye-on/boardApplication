@@ -49,8 +49,13 @@ public class AuthController {
 	}
 
 	@PostMapping("/logout")
-	public ResponseEntity<?> logout(@RequestBody RefreshRequest request) {
-		authService.logout(request.refreshToken());
+	public ResponseEntity<?> logout(
+		@RequestBody RefreshRequest request,
+		HttpServletRequest servletRequest) {
+
+		ClientContext context = (ClientContext) servletRequest.getAttribute(ClientContextFilter.CLIENT_CONTEXT_KEY);
+
+		authService.logout(request.refreshToken(), context);
 
 		return ResponseEntity.ok(
 			SuccessMessage.LOGOUT_SUCCESS.getMessage()
