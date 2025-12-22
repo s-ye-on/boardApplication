@@ -2,6 +2,7 @@ HELP.md
 idempotency.md
 AGENTS.md
 /docs/jwtMdSeries/memo.md
+/src/main/java/me/boardApp/log/logBlog.md
 
 .gradle
 build/

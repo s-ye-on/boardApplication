@@ -1,15 +1,36 @@
-# 보안 이벤트 로깅 (SecurityEvent)
-# 인증·인가 이벤트 로깅 설계하기 
+# Spring Security 인증 보안 이벤트 로깅 설계하기
+## 보안 이벤트 로깅 (SecurityEvent)
+
+> 이 글은 학습 과정에서 직접 구현하며 정리한 내용입니다.  
+> 일부 표현이나 구조는 개인 프로젝트 기준이며, 개선 여지가 있을 수 있습니다!
+
+## 전체 구조
+```text
+Client Request
+   ↓
+ClientContextFilter
+   ↓
+Controller
+   ↓
+AuthService (판단)
+   ↓
+SecurityEventService (기록)
+   ↓
+SecurityEvent (DB)
+```
 
 ## 지금 log.warn이 있는데도, 왜 SecurityEvent가 필요해? 
-log.war / log.error = "개발자 디버깅/운영 로그"
-- 서버에서 무슨 일이 있었는지 **흔적을 남김**
+log.warn / log.error = "개발자 디버깅/운영 로그"
+- 서버에서 무슨일이 있었는지 **흔적을 남김**
 - 파일/콘솔/로그 수집툴(ELK, CloudWatch 등)로 흘러감
 - 장점 : 구현 쉬움, 즉시 확인 가능
 - 단점 : 
   - **유저별로 사건을 모아서 보기 어려움**
   - "최근 7일간 refresh 재사용 감지된 계정" 같은 **조회/통계가 어려움**
-  - 로그 보관기간/포맷이 운영 설정에 의존 
+  - 로그 보관기간/포맷이 운영 설정에 의존  
+
+즉, 로그는 "지금 무슨 일이 있었는지"를 보는 도구고  
+SecurityEvent는 "과거에 무슨 일 이 반복되었는지"를 분석하기 위한 데이터다
 
 ## SecurityEvent(DB 저장) = "보안 감사(Audit) 데이터"
 - "보안 사건"을 **조회/분석/증거**로 남김
@@ -25,7 +46,7 @@ log.war / log.error = "개발자 디버깅/운영 로그"
 
 ---
 
-## 그럼 둘 다 남겨야 하나? 
+## 그럼 둘 다 남겨야 하나? log 와 SecurityEvent
 추천 : 
 - **보안적으로 중요한 사건** : DB(SecurityEvent) + log.info/warn 둘 다 
 - **디버깅용 상세 스택트레이스** : log.error(..., e) 만  
@@ -36,9 +57,8 @@ log.war / log.error = "개발자 디버깅/운영 로그"
 
 --- 
 
-## 코드 설명 
-
-### SecurityEvent 엔티티
+## SecurityEvent 엔티티 설계
+### 필드 설명
 ```java
 @Entity
 @Getter
@@ -86,7 +106,7 @@ private String message;
 
 ---
 
-### 팩토리 메서드 (생성 편의)
+### 팩토리 메서드 패턴 (생성 편의)
 ```java
 public static SecurityEvent of(
     SecurityEventType type,
@@ -131,13 +151,16 @@ private final SecurityEventRepository repository;
 - DB 저장 담당 리포지터리 주입  
 
 ```java
-public void log(
+public void record(
     SecurityEventType type,
     Long userId,
     HttpServletRequest request,
     String message
-) {
+) {}
 ```
+※ HttpServletRequest를 직접 받는 예제는 이해를 돕기 위한 초기 설명용이며,  
+실제 구현에서는 ClientContext를 사용해 웹 계층 의존성을 제거했다.  
+
 - "이벤트 남기기"의 표준 진입점
 - request를 받아서 ip/user-agent를 추출하기 위함  
 
@@ -247,7 +270,7 @@ time: 2025-01-10 22:31
 ```
 👉 **"이건 공격인가?"** 를 판단할 수 있는 정보가 생김
 
-## 그런데 ㅗ애 Service에서 받아야할까? 
+## 그런데 왜 Service에서 받아야할까? 
 ### ❌Service가 직접 HttpServletRequest를 꺼내면  
 ```java
 RequestContextHolder.getRequestAttributes() ❌
@@ -287,7 +310,7 @@ log.warn("잠긴 계정 로그인 시도 userEmail = {}", request.email());
 
 ### 바꿔볼 방식 (예시)
 ```java
-securityEventLogger.log(
+securityEventService.record(
     SecurityEventType.LOGIN_FAILED_LOCKED,
     user.getId(),
     request.email()
@@ -295,7 +318,6 @@ securityEventLogger.log(
 ```
 
 ## Controller에서 Service로 request(HttpServletRequest) 자체를 넘기지 말자
-
 
 ## 서비스에서 직접 받게 하지 않는게 정확히 무엇? 
 Service는 '웹 요청 객체(HttpServletRequest)'를 몰라야 한다는 뜻  
@@ -314,9 +336,9 @@ HTTP가 아닌 다른 вход(스케줄러/메시지/테스트/CLI)에서도 �
 ✅ request는 Controller/Filter에서만 다루고  
 Service에는 추출된 DTO만 넘기기 
 
-SecurityEventService.log()
+SecurityEventService.record()
 ```java
-public void log(
+public void record(
 		SecurityEventType type,
 		Long userId,
 		HttpServletRequest request,
@@ -424,7 +446,7 @@ public class ClientContextResolver {
 레이어 설계의 핵심 원칙  
 
 ## Filter에서 DTO를 만들었는데 왜 securityEventService.record()가 또 필요한가? 
-"CLientContext를 이미 Filter에서 만들었는데, 왜 굳이 Service를 하나 더 두고 record를 호출하지?"
+"ClientContext를 이미 Filter에서 만들었는데, 왜 굳이 Service를 하나 더 두고 record를 호출하지?"
 
 이유 :  
 Filter는 재료준비  
@@ -448,7 +470,34 @@ request.setAttribute("clientContext", clientContext);
 --- 
 
 ### Service의 역할 (SecurityEventService)
+- Filter가 수집한 정보를 바탕으로
+- **의미 있는 보안 사건을 기록하는 책임**만 가진다
 
+```java
+public void record(
+		SecurityEventType type,
+		Long userId,
+		ClientContext context
+	) {
+		if (context == null) {
+			context = ClientContext.system(); // fallback
+		}
+
+		SecurityEvent event = SecurityEvent.of(
+			type,
+			userId,
+			context,
+			type.getMessage()
+		);
+
+		repository.save(event);
+
+		log.info("[SECURITY] [{}] {} - userId={}",type.getSeverity(), type, userId);
+	}
+```
+
+
+---
 
 ## ClientContext.extractIp(HttpServletRequest request)
 ```java
@@ -505,7 +554,6 @@ else
 ```
 ---
 
-# 12월 22일
 ## ClientContext 왜 만들었나? 
 ### 문제 
 HttpServletRequest를 서비스마다 넘기면 : 
@@ -552,15 +600,24 @@ public static ClientContext from(HttpServletRequest request) {
 
 ### extractIp() - 왜 이렇게 복잡해 보일까? 
 ```java
-String forwarded = request.getHeader("X-Forwarded-For");
+private static String extractIp(HttpServletRequest request) {
+  // 프록시/로드밸런서 환경 고려 
+  // 여러 프록시를 거칠 경우 첫 번째 IP가 실제 클라이언트 IP
+  String forwarded = request.getHeader("X-Forwarded-For");
+  if (forwarded != null && !forwarded.isBlank()) {
+    return forwarded.split(",")[0].trim();
+  }
+  return request.getRemoteAddr();
+}
 ```
 #### 이유
-실부에선 보통 구조가 이렇게 됨 👇
+실무에선 보통 구조가 이렇게 됨 👇
 ```text
 Client → LoadBalancer → Proxy → Server
 ```
 - request.getRemoteAddr() 👉 프록시 IP  
 - 실제 사용자 IP 👉 X-Forwarded-For
+
 ```java
 return forwarded.split(",")[0].trim();
 ```
@@ -639,7 +696,7 @@ securityEventService.record(
 서비스 분리  
 
 
-// 보안 이벤트는 비즈니스 판단이 일어난 지점에서 남긴다 
+### ❗️보안 이벤트는 비즈니스 판단이 일어난 지점에서 남긴다 
 
 ---
 
@@ -707,4 +764,163 @@ SecurityEventType = **서버가 기억해야 할 사건**
 
 ---
 
+## 여기까지의 핵심
+- 요청 정보는 Filter에서 한 번만 수집한다
+- Service는 HttpServletRequest를 몰라도 된다
+- Service는 “이벤트의 의미”만 판단한다
+- 기록 책임은 SecurityEventService가 전담한다
 
+이제 남은 문제는  
+👉 **이 이벤트를 어떻게 분류하고, 얼마나 심각한지 표현할 것인가**다
+
+---
+
+## SecurityEventType과 Severity 설계  
+
+SecurityEventType
+```java
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+
+// 로그 문자열이 아니라 의미 있는 이벤트 타입
+// 나중에 통계 / 알림 / 감사 로그로 확장 가능
+@Getter
+@RequiredArgsConstructor
+public enum SecurityEventType {
+
+  // INFO
+  LOGIN_SUCCESS(SecuritySeverity.INFO,"로그인 성공"),
+  LOGOUT_SUCCESS(SecuritySeverity.INFO,"로그아웃 성공"),
+
+  // WARN
+  LOGIN_FAIL(SecuritySeverity.WARNING,"로그인 실패"),
+  LOGIN_FAIL_UNKNOWN_USER(SecuritySeverity.WARNING,"존재하지 않는 아이디로 로그인 시도"),
+  LOCKED_ACCOUNT_LOGIN_ATTEMPT(SecuritySeverity.WARNING,"잠긴 계정 로그인 시도"),
+  LOGOUT_FAILED_INVALID_TOKEN(SecuritySeverity.WARNING,"존재하지 않은 토큰으로 로그아웃 시도"),
+  ACCESS_DENIED(SecuritySeverity.WARNING,"계정 거부"),
+
+  // CRITICAL
+  LOCKED_ACCOUNT_REFRESH_ATTEMPT(SecuritySeverity.CRITICAL,"잠긴 계정에서 Token Refresh 시도"),
+  REFRESH_REUSED(SecuritySeverity.CRITICAL,"Refresh Token 재사용"),
+  REFRESH_LOCKED(SecuritySeverity.CRITICAL,"Refresh Token 잠김"),
+  ACCOUNT_LOCKED(SecuritySeverity.CRITICAL,"계정 잠김");
+
+  private final SecuritySeverity severity;
+  private final String message;
+}
+
+```
+
+SecuritySeverity
+```java
+package me.boardApp.log;
+
+public enum SecuritySeverity {
+	INFO, // 단순 기록
+	WARNING, // 이상 징후
+	CRITICAL, // 즉각 대응 필요
+}
+
+```
+
+## Severity를 EventType에 고정한 이유 
+### 왜 Severity를 Type에 고정했나?
+- 이벤트 의미와 심각도를 분리하지 않기 위해
+- 실수로 낮은 심각도로 기록되는걸 방지하기 위해 
+- 나중에 알림 기준을 단순화 하기 위해  
+
+👉 **이벤트 타입 자체가 정책이다**
+
+### SecurityEvent - 엔티티에서는 판단하지 않는다 
+
+```java
+public static SecurityEvent of(
+    SecurityEventType type,
+    Long userId,
+    ClientContext context,
+    String message
+) {
+    SecurityEvent event = new SecurityEvent();
+    event.type = type;
+    event.severity = type.getSeverity();  // ✅ 이 부분
+    event.userId = userId;
+    event.ipAddress = context.ipAddress();
+    event.userAgent = context.userAgent();
+    event.requestURI = context.requestUri();
+    event.httpMethod = context.httpMethod();
+    event.createdAt = LocalDateTime.now();
+    event.message = message;
+    return event;
+}
+```
+- 실수로 심각도를 잘못 받아오지 않게 하기 위해 `event.severity = type.getSeverity()` 이렇게 만들었다
+- 하나로 확실히 묶일 수 있게 해줬다 
+- 엔티티는 저장만
+- 정책, 조건, 판단 ❌
+
+---
+
+## SecurityEventService.record()에서 팩토리 메서드를 통해 이벤트 생성
+```java
+	public void record(
+		SecurityEventType type,
+		Long userId,
+		ClientContext context
+	) {
+		if (context == null) {
+			context = ClientContext.system(); // fallback
+		}
+
+		SecurityEvent event = SecurityEvent.of(
+			type,
+			userId,
+			context,
+			type.getMessage()
+		);
+
+		repository.save(event);
+
+		log.info("[SECURITY] [{}] {} - userId={}",type.getSeverity(), type, userId);
+	}
+
+```
+
+## 상태 기반 보안 정책은 어디에서 판단해야 할까? 
+- "5회 실패"는 상태 + 시간 + 정책의 결과
+- 엔티티나 이벤트 타입이 알 일이 아님
+
+그래서 :
+- Service에서 조건 판단
+- 조건 충족 시 **다른 EventType으로 승격**
+```text
+LOGIN_FAIL
+→ LOGIN_FAIL_THRESHOLD_EXCEEDED (CRITICAL)
+```
+
+---
+
+## 최종 구조 다시 보기
+```text
+Client Request
+   ↓
+ClientContextFilter   (요청 맥락 수집)
+   ↓
+Controller            (요청 위임)
+   ↓
+AuthService           (보안 판단)
+   ↓
+SecurityEventService  (이벤트 기록)
+   ↓
+SecurityEvent (DB)    (감사 / 분석)
+```
+---
+
+## 📚 마무리 정리
+- 보안 로그는 문자열이 아니라 **이벤트**다
+- 이벤트는 **타입 + 심각도**로 표현한다
+- Service는 판단만, 기록은 전용 서비스가 담당한다
+- ClientContext로 요청정보를 분리해 결합도를 낮췄다
+- 이 구조는 감사 로그 / 알림 / 통계로 자연스럽게 확장 가능하다
+
+**보안 로깅은 "있으면 좋은 기능"이 아니라    
+시스템의 사고 과정을 기록하는 설계다**
