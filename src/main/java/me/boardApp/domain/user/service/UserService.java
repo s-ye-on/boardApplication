@@ -105,9 +105,15 @@ public class UserService {
 		//현재 로그인 유저의 비밀번호 검증
 		currentUser.validatePassword(request.password(), passwordEncoder);
 
+		// 현재 닉네임과 바꾸려는 닉네임이 같은지 체크
+		if (currentUser.getNickname().equals(request.newNickName())) {
+			throw new UserException(ExceptionCode.SAME_NICKNAME);
+		}
+
 		// 닉네임 중복 체크
-		userRepository.findByNickname(request.newNickName())
-			.orElseThrow(() -> new UserException(ExceptionCode.DUPLICATE_NICKNAME));
+		if(userRepository.existsByNickname(request.newNickName())) {
+			throw new UserException(ExceptionCode.DUPLICATE_NICKNAME);
+		}
 
 		currentUser.updateNickname(request.newNickName());
 	}
@@ -141,7 +147,7 @@ public class UserService {
 
 	public void delete(UserRequest.Delete request, Long currentUserId) {
 		User user = userRepository.findById(currentUserId)
-			.orElseThrow(() -> new UserException(ExceptionCode.NOT_FOUND_NICKNAME));
+			.orElseThrow(() -> new UserException(ExceptionCode.NOT_FOUND_USER));
 
 		user.validateDelete(request, passwordEncoder);
 

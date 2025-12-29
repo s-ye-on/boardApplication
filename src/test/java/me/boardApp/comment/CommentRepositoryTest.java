@@ -8,10 +8,14 @@ import me.boardApp.domain.board.BoardRepository;
 import me.boardApp.domain.post.Post;
 import me.boardApp.domain.post.PostRepository;
 import me.boardApp.domain.user.User;
+import me.boardApp.domain.user.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 import java.util.List;
 
@@ -26,14 +30,17 @@ public class CommentRepositoryTest {
 	private BoardRepository boardRepository;
 	@Autowired
 	private PostRepository postRepository;
+	@Autowired
+	private UserRepository userRepository;
 
 	private Long testPostId;
 
 	User user;
 
 	@BeforeEach
-	void 유저_생성(){
+	void 유저_생성() {
 		user = new User("최승연", "얍얍", "1234", "csy03178@naver.com");
+		user = userRepository.save(user);
 	}
 
 	@BeforeEach
@@ -41,23 +48,25 @@ public class CommentRepositoryTest {
 		Board testBoard = new Board("테스트 게시판", "테스트용", Board.Type.TEST);
 		boardRepository.save(testBoard);
 
-		Post testPost = new Post(testBoard,user, "테스트 글", "본문");
+		Post testPost = new Post(testBoard, user, "테스트 글", "본문");
 		postRepository.save(testPost);
 		// 연관관계 단방향 전환
 		//testBoard.posted(testPost);
 		testPostId = testPost.getId();
 	}
+
 	@Test
-	void 댓글_생성_성공(){
+	void 댓글_생성_성공() {
 		Post testPost = postRepository.findById(testPostId).orElseThrow();
-		Comment testComment = new Comment(testPost, user,"테스트 댓글");
+		Comment testComment = new Comment(testPost, user, "테스트 댓글");
 		commentRepository.save(testComment);
 
 	}
+
 	@Test
-	void 댓글_저장_성공(){
+	void 댓글_저장_성공() {
 		Post testPost = postRepository.findById(testPostId).orElseThrow();
-		Comment testComment = new Comment(testPost, user,"테스트 댓글");
+		Comment testComment = new Comment(testPost, user, "테스트 댓글");
 		commentRepository.save(testComment);
 
 		// Comment 객체 끼리 비교
@@ -68,19 +77,21 @@ public class CommentRepositoryTest {
 		assertThat(commentRepository.findById(testComment.getId()))
 			.contains(testComment);
 	}
+
 	@Test
-	void 댓글_읽기_성공(){
+	void 댓글_읽기_성공() {
 		Post testPost = postRepository.findById(testPostId).orElseThrow();
 
 		Comment testComment = new Comment(testPost, user, "테스트 댓글");
 		commentRepository.save(testComment);
 
 		assertThat(commentRepository.findById(testComment.getId()).orElseThrow())
-		.isEqualTo(testComment);
+			.isEqualTo(testComment);
 
 	}
+
 	@Test
-	void 댓글_작성자_게시글Id로_읽기_성공(){
+	void 댓글_작성자_게시글Id로_읽기_성공() {
 		//given
 		Post testPost = postRepository.findById(testPostId).orElseThrow();
 
@@ -91,15 +102,21 @@ public class CommentRepositoryTest {
 		commentRepository.save(testComment2);
 
 		//when
-		List<Comment> results = commentRepository.findAllByUserNicknameAndPostId("최승연", testPost.getId());
+		Pageable pageable = PageRequest.of(0, 30, Sort.by("createdDate").ascending());
+
+		List<Comment> results = commentRepository.findAllByUserNicknameAndPostId("얍얍", testPost.getId(), pageable).getContent();
 
 		//then
-		assertThat(results.size()).isEqualTo(2);
-		assertThat(results.get(0)).isEqualTo(testComment1);
-		assertThat(results.get(1)).isEqualTo(testComment2);
+		assertThat(results).hasSize(2);
+		assertThat(results)
+			.extracting(Comment::getComment)
+			.containsExactly("테스트 댓글1", "테스트 댓글2");
+		assertThat(results.get(0).getCreatedDate())
+			.isBeforeOrEqualTo(results.get(1).getCreatedDate());
 	}
+
 	@Test
-	void 댓글_게시글Id로_모두_읽기_성공(){
+	void 댓글_게시글Id로_모두_읽기_성공() {
 		Post testPost = postRepository.findById(testPostId).orElseThrow();
 
 		Comment testComment1 = new Comment(testPost, user, "테스트 댓글");
@@ -114,8 +131,9 @@ public class CommentRepositoryTest {
 		assertThat(results.get(0)).isEqualTo(testComment1);
 		assertThat(results.get(1)).isEqualTo(testComment2);
 	}
+
 	@Test
-	void 댓글_수정_성공(){
+	void 댓글_수정_성공() {
 		Post testPost = postRepository.findById(testPostId).orElseThrow();
 		Comment testComment = new Comment(testPost, user, "테스트 댓글");
 		commentRepository.save(testComment);
@@ -126,8 +144,9 @@ public class CommentRepositoryTest {
 		assertThat(foundComment.getComment()).isEqualTo("(수정) 댓글 수정");
 
 	}
+
 	@Test
-	void 댓글_삭제_성공(){
+	void 댓글_삭제_성공() {
 		//given
 		Post testPost = postRepository.findById(testPostId).orElseThrow();
 

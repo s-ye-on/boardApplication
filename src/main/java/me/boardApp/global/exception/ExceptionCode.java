@@ -18,6 +18,7 @@ public enum ExceptionCode {
 	BAD_REQUEST(HttpStatus.BAD_REQUEST, "잘못된 요청입니다"),
 	INVALID_REAL_NAME(HttpStatus.BAD_REQUEST, "실명이 일치하지 않습니다"),
 	INVALID_NICKNAME(HttpStatus.BAD_REQUEST, "닉네임이 일치하지 않습니다"),
+	SAME_NICKNAME(HttpStatus.BAD_REQUEST, "현재 닉네임과 동일합니다"),
 	INVALID_PASSWORD(HttpStatus.BAD_REQUEST, "비밀번호가 일치하지 않습니다"),
 	INVALID_EMAIL(HttpStatus.BAD_REQUEST, "이메일이 일치하지 않습니다"),
 	USER_VALIDATION_FAILED(HttpStatus.BAD_REQUEST, "사용자 정보가 올바르지 않습니다"),

@@ -17,7 +17,7 @@ public class BoardRepositoryTest {
 	private BoardRepository boardRepository;
 
 	@Test
-	void 게시판_저장_성공(){
+	void 게시판_저장_성공() {
 		//given
 		Board savedBoard = new Board("테스트 게시판", "테스트용", Board.Type.TEST);
 		//when
@@ -28,23 +28,23 @@ public class BoardRepositoryTest {
 	}
 
 	@Test
-	void 게시판아이디_자동생성_성공(){
+	void 게시판아이디_자동생성_성공() {
 		Board testBoard = new Board("테스트 게시판", "테스트용", Board.Type.TEST);
 		boardRepository.save(testBoard);
-		Board savedBoard = boardRepository.findById(testBoard.getId()).orElseThrow(()->new RuntimeException("오류"));
+		Board savedBoard = boardRepository.findById(testBoard.getId()).orElseThrow(() -> new RuntimeException("오류"));
 		assertThat(savedBoard.getId()).isNotNull();
 	}
 
 	@Test
-	void 게시판_조회_성공(){
+	void 게시판_조회_성공() {
 		Board testBoard = new Board("테스트 게시판", "테스트용", Board.Type.TEST);
 		boardRepository.save(testBoard);
-		Board savedBoard = boardRepository.findById(testBoard.getId()).orElseThrow(()->new IllegalStateException("존재하지 않음"));
+		Board savedBoard = boardRepository.findById(testBoard.getId()).orElseThrow(() -> new IllegalStateException("존재하지 않음"));
 		assertThat(savedBoard).isEqualTo(testBoard);
 	}
 
 	@Test
-	void 게시판_수정_성공(){
+	void 게시판_수정_성공() {
 		Board testBoard = new Board("테스트 게시판", "테스트용", Board.Type.TEST);
 		boardRepository.save(testBoard);
 		testBoard.update("(수정) 테스트 게시판", "본문 수정 완료");
@@ -55,7 +55,7 @@ public class BoardRepositoryTest {
 	}
 
 	@Test
-	void 게시판_삭제_성공(){
+	void 게시판_삭제_성공() {
 		Board testBoard = new Board("테스트 게시판", "테스트용", Board.Type.TEST);
 		boardRepository.save(testBoard);
 		boardRepository.delete(testBoard);
@@ -63,7 +63,7 @@ public class BoardRepositoryTest {
 	}
 
 	@Test
-	void 게시판_아이디로삭제_성공(){
+	void 게시판_아이디로삭제_성공() {
 		Board testBoard = new Board("테스트 게시판", "테스트용", Board.Type.TEST);
 		boardRepository.save(testBoard);
 		boardRepository.deleteById(testBoard.getId());

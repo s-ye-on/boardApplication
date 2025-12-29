@@ -38,8 +38,9 @@ public class AuthController {
 		// 필터에서 분명 ClientContext 형으로 저장했는데 Controller에서 왜 형변환을 해줘야하나?
 		// -> getAttribute()는 무조건 Object를 반환함
 		// ClientContext인지 모름 -> 명시적 형변환 필요
-		// 재변환이 아니라, 같은 객체를 같은 참조로 타입만 알려주는 것 -> 이 Object를 ClientContext로 다뤄도 된다고 컴파일러에게 알려준 것
+		// 재변환이 아니라, 같은 객체를 같은 참조로 타입만 알려주는 것 -> 이 Object는 ClientContext야 라고 컴파일러에게 알려주는 것
 		ClientContext context = (ClientContext) servletRequest.getAttribute(ClientContextFilter.CLIENT_CONTEXT_KEY);
+		// HttpServletRequest를 정보 추출 도구로 쓰는게 아니라 "컨텍스트 저장소"로만 사용
 
 		AuthResponse.Login response = authService.login(request, context);
 

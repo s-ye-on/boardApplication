@@ -49,7 +49,7 @@ public class CommentController {
 		@RequestParam String writerName,
 		// 어떤 글의 댓글인지 식별 -> @PathVariable 사용
 		@PageableDefault(size = 10, sort = "createdDate", direction = Sort.Direction.DESC) Pageable pageable) {
-		return commentService.readByWriterAndPostId(writerName, postId, pageable);
+		return commentService.readAllByWriterAndPostId(writerName, postId, pageable);
 	}
 
 	@GetMapping

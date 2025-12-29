@@ -60,14 +60,14 @@ public class CommentService {
 
 	// Read
 	// 한 게시글에 한 사람이 여러 댓글 남길수도 있으니 List 반환
-	public Page<CommentResponse.Read> readByWriterAndPostId(String writerName, Long postId, Pageable pageable) {
+	public Page<CommentResponse.Read> readAllByWriterAndPostId(String writerName, Long postId, Pageable pageable) {
 //		return commentRepository.findAllByUserNicknameAndPostId(writerName, postId)
 //			.stream()
 //			.map(this::mapToCommentReadResponse)
 //			.toList();
 		/// todo : writerName 검증, postId 검증 로직
 		// page로 전환
-		// 한 유저가 어떤 한 게시글에 단 댓글을 보여주는거니까 List로 받아주는게 더 가시성이 있어보이기도 하고.. 고민
+		// 사실 comment는 몇 개 없기에 List로 반환해도 됨
 		return commentRepository.findAllByUserNicknameAndPostId(writerName, postId, pageable)
 			.map(this::toReadResponse);
 	}
