@@ -28,6 +28,7 @@ import java.time.LocalDateTime;
 @Slf4j
 @RequiredArgsConstructor
 public class AuthService {
+	private static final int LOGIN_FAIL_THRESHOLD = 5;
 
 	// 여기서도 단순 조회라 commonService 써도 되지만,
 	// 인증(Auth)도 결국 "User 도메인 위에 올라가는 별도의 서브 도메인"이라 볼 수 있고,
@@ -52,7 +53,6 @@ public class AuthService {
 				return new UserException(ExceptionCode.USER_VALIDATION_FAILED);
 			});
 
-
 		// 여기에 user 계정의 status가 lock이라면 로그인 실패 후 본인인증 시키게 만들자
 		if (!user.validActivate()) {
 			log.warn("잠긴 계정 로그인 시도 userEmail = {}", request.email());
@@ -70,12 +70,35 @@ public class AuthService {
 		// 2. 비밀번호 검증
 		try {
 			user.validatePassword(request.password(), passwordEncoder);
+
+			// 로그인 성공 시 실패 횟수 초기화
+			user.resetLoginFailCount();
 		} catch (UserException e) {
+			user.increaseLoginFailCount();
+
 			securityEventService.record(
 				SecurityEventType.LOGIN_FAIL,
 				user.getId(),
 				clientContext
 			);
+
+			if(user.isLockThresholdExceeded(LOGIN_FAIL_THRESHOLD)) {
+				user.lock();
+
+				// 로그인 시도 횟수 초과 기록
+				securityEventService.record(
+					SecurityEventType.LOGIN_FAIL_THRESHOLD_EXCEEDED,
+					user.getId(),
+					clientContext
+				);
+
+				// 계정 잠굼 기록
+				securityEventService.record(
+					SecurityEventType.ACCOUNT_LOCKED,
+					user.getId(),
+					clientContext
+				);
+			}
 
 			throw e;
 		}

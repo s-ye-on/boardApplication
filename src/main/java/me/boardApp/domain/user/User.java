@@ -42,6 +42,9 @@ public class User extends BaseEntity {
 	@Enumerated(EnumType.STRING)
 	private Role role;
 
+	@Column(nullable = false)
+	private int loginFailCount;
+
 	/// todo
 	/// 댓글은 회원 탈퇴되더라도 "탈퇴한 회원"으로 댓글 보이게 하고 싶음
 	/// 하지만 게시글은 회원 탈퇴 시 게시글이 안보이게 하고 싶음
@@ -64,6 +67,7 @@ public class User extends BaseEntity {
 		this.email = email;
 		this.status = Status.ACTIVATION;
 		this.role = Role.USER;
+		this.loginFailCount = 0;
 	}
 
 	public static User createAdmin(String realName, String nickname, String password, String email) {
@@ -110,8 +114,24 @@ public class User extends BaseEntity {
 		}
 	}
 
+	public void increaseLoginFailCount() {
+		this.loginFailCount++;
+	}
+
+	public void resetLoginFailCount() {
+		this.loginFailCount = 0;
+	}
+
+	public boolean isLockThresholdExceeded(int threshold) {
+		return this.loginFailCount >= threshold;
+	}
+
 	public boolean isAdmin() {
 		return this.role == Role.ADMIN;
+	}
+
+	public boolean isLocked() {
+		return this.status == Status.LOCKED;
 	}
 
 	public void updateNickname(String newNickname) {

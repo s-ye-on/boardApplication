@@ -22,6 +22,7 @@ public enum SecurityEventType {
 
 	// CRITICAL
 	LOCKED_ACCOUNT_REFRESH_ATTEMPT(SecuritySeverity.CRITICAL,"잠긴 계정에서 Token Refresh 시도"),
+	LOGIN_FAIL_THRESHOLD_EXCEEDED(SecuritySeverity.CRITICAL, "로그인 실패 횟수 허용 초과"),
 	REFRESH_REUSED(SecuritySeverity.CRITICAL,"Refresh Token 재사용"),
 	REFRESH_LOCKED(SecuritySeverity.CRITICAL,"Refresh Token 잠김"),
 	ACCOUNT_LOCKED(SecuritySeverity.CRITICAL,"계정 잠김");
