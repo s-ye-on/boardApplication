@@ -26,6 +26,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
 	boolean existsByNickname(String nickname);
 
+	boolean existsByRole(User.Role role);
+
 	// 특정 조건에 따라 페이징 적용
 	// nickname에 따라
 	Page<User> findByNicknameContaining(String nickname, Pageable pageable);

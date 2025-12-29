@@ -12,6 +12,7 @@ public enum SecurityEventType {
 	// INFO
 	LOGIN_SUCCESS(SecuritySeverity.INFO,"로그인 성공"),
 	LOGOUT_SUCCESS(SecuritySeverity.INFO,"로그아웃 성공"),
+	ACCOUNT_UNLOCKED_BY_ADMIN(SecuritySeverity.INFO, "관리자에 의해 유저 ID 잠금 해제"),
 
 	// WARN
 	LOGIN_FAIL(SecuritySeverity.WARNING,"로그인 실패"),

@@ -70,6 +70,8 @@ public class User extends BaseEntity {
 		this.loginFailCount = 0;
 	}
 
+	// 관리자 계정 생성용 팩토리 메서드
+	// 일반 회원가입 플로우에 절대 노출 X
 	public static User createAdmin(String realName, String nickname, String password, String email) {
 		User admin = new User(realName, nickname, password, email);
 		admin.role = Role.ADMIN;
@@ -164,6 +166,11 @@ public class User extends BaseEntity {
 
 	public void lock() {
 		this.status = Status.LOCKED;
+	}
+
+	public void unlock() {
+		this.status = Status.ACTIVATION;
+		this.loginFailCount = 0;
 	}
 
 	public boolean validActivate() {
