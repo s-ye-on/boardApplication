@@ -16,6 +16,7 @@ public enum SecurityEventType {
 
 	// WARN
 	LOGIN_FAIL(SecuritySeverity.WARNING,"로그인 실패"),
+	AUTHENTICATION_FAILED(SecuritySeverity.WARNING, "인증 실패"),
 	LOGIN_FAIL_UNKNOWN_USER(SecuritySeverity.WARNING,"존재하지 않는 아이디로 로그인 시도"),
 	LOCKED_ACCOUNT_LOGIN_ATTEMPT(SecuritySeverity.WARNING,"잠긴 계정 로그인 시도"),
 	LOGOUT_FAILED_INVALID_TOKEN(SecuritySeverity.WARNING,"존재하지 않은 토큰으로 로그아웃 시도"),
