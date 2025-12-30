@@ -38,8 +38,13 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
 		// 로그 위치가 정책 경계와 일치
 		ClientContext context = (ClientContext) request.getAttribute(ClientContextFilter.CLIENT_CONTEXT_KEY);
 
+		// exceptionCode가 이벤트 타입을 알고 있게 했기에 가능함
+		// 토큰이 어떤 문제인지에 따라 감사 로그를 정확히 적고 싶기에 이렇게 만들었음
+		// switch case 분기 없기에 좀 더 깔끔함
+		SecurityEventType eventType = exceptionCode.toSecurityEventTypeOr(SecurityEventType.AUTHENTICATION_FAILED);
+
 		securityEventService.record(
-			SecurityEventType.AUTHENTICATION_FAILED,
+			eventType,
 			null,
 			context
 		);
