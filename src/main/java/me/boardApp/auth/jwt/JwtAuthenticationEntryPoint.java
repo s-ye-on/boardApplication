@@ -41,6 +41,7 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
 		// exceptionCode가 이벤트 타입을 알고 있게 했기에 가능함
 		// 토큰이 어떤 문제인지에 따라 감사 로그를 정확히 적고 싶기에 이렇게 만들었음
 		// switch case 분기 없기에 좀 더 깔끔함
+		// 원인 중심 설계 -> "원인이 의미를 결정한다"
 		SecurityEventType eventType = exceptionCode.toSecurityEventTypeOr(SecurityEventType.AUTHENTICATION_FAILED);
 
 		securityEventService.record(

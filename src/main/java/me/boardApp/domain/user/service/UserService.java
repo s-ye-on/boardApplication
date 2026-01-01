@@ -111,7 +111,7 @@ public class UserService {
 		}
 
 		// 닉네임 중복 체크
-		if(userRepository.existsByNickname(request.newNickName())) {
+		if (userRepository.existsByNickname(request.newNickName())) {
 			throw new UserException(ExceptionCode.DUPLICATE_NICKNAME);
 		}
 

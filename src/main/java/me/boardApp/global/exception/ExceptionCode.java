@@ -81,6 +81,6 @@ public enum ExceptionCode {
 	// 원인이 해석을 부르는 구조가 더 자연스럽다
 	// 주의 : 이 메서드는 JwtAuthenticationEntryPoint에서만 사용해야 한다
 	public SecurityEventType toSecurityEventTypeOr(SecurityEventType fallback) {
-		return securityEventType != null ? securityEventType : fallback;
+		return this.securityEventType != null ? securityEventType : fallback;
 	}
 }
