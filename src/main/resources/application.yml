@@ -16,3 +16,10 @@ spring:
   h2:
     console:
       enabled: true
+
+
+app:
+  jwt:
+    secret: very-secret-jwt-key-change-me-please-very-long
+    expiration-seconds: 3600 # access token: 1시간
+    refresh-expiration-seconds: 604800 # refresh token: 7일

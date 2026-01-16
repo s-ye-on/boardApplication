@@ -17,6 +17,8 @@ import java.lang.annotation.Target;
 public @interface UniqueNickname {
 
 	String message() default "중복된 닉네임 입니다";
-	Class<?> [] groups() default {};
-	Class<? extends Payload> [] payload() default {};
+
+	Class<?>[] groups() default {};
+
+	Class<? extends Payload>[] payload() default {};
 }

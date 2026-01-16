@@ -42,12 +42,18 @@ public class User extends BaseEntity {
 	@Enumerated(EnumType.STRING)
 	private Role role;
 
+	@Column(nullable = false)
+	private int loginFailCount;
+
 	/// todo
 	/// 댓글은 회원 탈퇴되더라도 "탈퇴한 회원"으로 댓글 보이게 하고 싶음
 	/// 하지만 게시글은 회원 탈퇴 시 게시글이 안보이게 하고 싶음
 	/// 여기서 방법이 두가지 있는데 1. DB에서 실제로 삭제(hard delete) 2. DB에는 남아 있지만 사용자에게만 보이게 하기(soft delete)
 	/// 2번으로 할 경우 user처럼 status를 두면 됨
 	///  이거는 나중에 고민해보고 결정
+
+	// Post-Comment는 같은 생명 주기라 Aggregate 내부라서 양방향,
+	// User는 상태를 가진 독립 엔티티라 Post/Comment와는 단방향으로 수정해보자
 
 	@OneToMany(mappedBy = "user", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
 	private List<Post> posts = new ArrayList<>();
@@ -57,15 +63,18 @@ public class User extends BaseEntity {
 	@OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
 	private List<Comment> comments = new ArrayList<>();
 
-	public User(String realName, String nickname, String password,  String email) {
+	public User(String realName, String nickname, String password, String email) {
 		this.realName = realName;
 		this.nickname = nickname;
 		this.password = password;
 		this.email = email;
 		this.status = Status.ACTIVATION;
 		this.role = Role.USER;
+		this.loginFailCount = 0;
 	}
 
+	// 관리자 계정 생성용 팩토리 메서드
+	// 일반 회원가입 플로우에 절대 노출 X
 	public static User createAdmin(String realName, String nickname, String password, String email) {
 		User admin = new User(realName, nickname, password, email);
 		admin.role = Role.ADMIN;
@@ -80,8 +89,8 @@ public class User extends BaseEntity {
 		}
 	}
 
-	public void validateNickname(String nickname){
-		if(!nickname.equals(this.nickname)){
+	public void validateNickname(String nickname) {
+		if (!nickname.equals(this.nickname)) {
 			throw new UserException(ExceptionCode.INVALID_NICKNAME);
 		}
 	}
@@ -98,20 +107,36 @@ public class User extends BaseEntity {
 //		}
 //	}
 
-	public void validatePassword(String password,  PasswordEncoder passwordEncoder) {
+	public void validatePassword(String password, PasswordEncoder passwordEncoder) {
 		if (!passwordEncoder.matches(password, this.password)) {
 			throw new UserException(ExceptionCode.INVALID_PASSWORD);
 		}
 	}
 
-	public void validateEmail(String email){
-		if(!this.getEmail().equals(email)){
+	public void validateEmail(String email) {
+		if (!this.getEmail().equals(email)) {
 			throw new UserException(ExceptionCode.INVALID_EMAIL);
 		}
 	}
 
+	public void increaseLoginFailCount() {
+		this.loginFailCount++;
+	}
+
+	public void resetLoginFailCount() {
+		this.loginFailCount = 0;
+	}
+
+	public boolean isLockThresholdExceeded(int threshold) {
+		return this.loginFailCount >= threshold;
+	}
+
 	public boolean isAdmin() {
 		return this.role == Role.ADMIN;
+	}
+
+	public boolean isLocked() {
+		return this.status == Status.LOCKED;
 	}
 
 	public void updateNickname(String newNickname) {
@@ -132,21 +157,36 @@ public class User extends BaseEntity {
 		this.validateRealName(request.realName());
 	}
 
-	public void inactivate(){
+	public void inactivate() {
 		this.status = Status.INACTIVATION;
 		this.nickname = "탈퇴한 회원" + this.getId();
 	}
 
-	public void activate(String nickname){
+	public void activate(String nickname) {
 		this.status = Status.ACTIVATION;
 		this.nickname = nickname;
+	}
+
+	public void lock() {
+		this.status = Status.LOCKED;
+	}
+
+	public void unlock() {
+		this.status = Status.ACTIVATION;
+		this.loginFailCount = 0;
+	}
+
+	public boolean validActivate() {
+		return this.status == Status.ACTIVATION;
 	}
 
 	// soft delete에서 사용
 	public enum Status {
 		ACTIVATION,
-		INACTIVATION
+		INACTIVATION,
+		LOCKED
 	}
+
 	// enum 정해진 개수의 상태값 중 하나
 	// record 여러 값을 묶은 불변 데이터 구조(DTO,응답 객체, 복합 값 표현)
 	public enum Role {

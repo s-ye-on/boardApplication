@@ -1,14 +1,21 @@
 ## 페이징(Paging)
-- 한 번에 전체 데이터를 다 가져오지 않고,
-    필요한 일부만 나눠서 가져오는 것
+페이징(Paging)은 한 번에 전체 데이터를 다 가져오지 않고,  
+필요한 일부만 나누어 조회하는 기법이다.
+
+## 페이징이 왜 필요할까? 
+페이징은(Paging)은 한 번에 전체 데이터를 조회하지 않고,  
+필요한 만큼만 나누어 조회해 성능과 UX를 동시에 개선하는 기법이다.  
 
 - 예
   - 유저가 10만명인데, /users API호출할 
     때 전부 리턴하면 DB와 네트워크가 터짐
   - 그래서 보통 `/users?page=0&size=10` 이런식으로 10명씩 끊어서 가져옴
 
-### JPA에서 페이징 처리하는 방법 (Offset 기반)
-- 스프링 데이터 JPA에서는 Pageable과 Page를 이용해 자동으로 페이징 처리를 지원
+## Spring Data JPA에서의 기본 페이징 (Offset 기반)
+- Spring Data JPA에서는 Pageable과 Page를 이용해 자동으로 페이징 처리를 지원  
+
+Spring Data JPA에서 제공하는 기본 페이징은  
+SQL의 LIMIT / OFFSET을 사용하는 Offset 기반 페이징이다.   
 
 ✅ Repository
 ```java
@@ -18,9 +25,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 ```
 - `Page<User>` : 결과를 페이지 단위로 감싼 객체 (총 페이지 수, 현재 페이지 등 정보 포함)
 
-
 - `findByNicknameContaining` : Containing 키워드는 LIKE %keyword% SQL 구문으로 자동 변환
-
 
 - `Pageable pageable` : 페이지 번호, 크기, 정렬 방식 등을 담는 객체
 
@@ -35,7 +40,7 @@ LIMIT ?, ?
 스프링 데이터 JPA의 메서드 네이밍 규칙에 따라 
 `Containing`, `StartsWith`, `EndsWith` 같은 키워드는 자동으로 JPQL로 변환
 
-- `findByNicknameContatining("승")`
+- `findByNicknameContaining("승")`
   - `WHERE nickname LIKE %승%`
 - `findByNicknameStartsWith("승")`
   - `WHERE nickname LIKE 승%`
@@ -72,8 +77,11 @@ public Page<UserReadResponse> searchUsers(String nickname, Pageable pageable) {
 | `Slice<T>` | ❌ 없음      | ✅ 있음     | ❌ 빠름          |
 | `List<T>`  | ❌ 없음      | ❌ 없음     | ❌ 가장 단순       |
 
-- 실무에선 거의 Page를 많이 씀.
-- 단 Slice는 무한 스크롤 같은 UI에 좋음
+- 관리자/검색 화면은 Page, 사용자 피드는 Slice를 많이 씀
+- 단 Slice는 무한 스크롤 같은 UI에 좋음  
+
+Page는 "페이지 이동"이 필요한 화면에,  
+Slice는 "다음 데이터가 있는지만" 필요한 화면에 적합하다
 
 ### 응용 팁
 - 페이징은 정렬도 함께 처리 가능함
@@ -92,8 +100,11 @@ userRepository.findByNicknameContaining("승", pageable);
 - JPA 네이밍 규칙으로 페이징 + 검색 한번에 가능
 
 
-### 페이징의 두가지 개념
-✅ 1️⃣ 일반적인 페이징 (Offset 기반 Paging)
+## 페이징의 두가지 개념
+Offset 기반 페이징은 "페이지 번호"를 기준으로 하고,  
+Cursor 기반 페이징은 "데이터의 위치(기준값)"를 기준으로 한다.  
+
+### ✅ 1️⃣ 일반적인 페이징 (Offset 기반 Paging)
 - SQL의 OFFSET과 LIMIT을 이용하는 가장 흔한 방식
 ```sql
 SELECT * FROM post ORDER BY id DESC LIMIT 10 OFFSET 20;
@@ -111,8 +122,9 @@ SELECT * FROM post ORDER BY id DESC LIMIT 10 OFFSET 20;
 - 데이터가 많을 수록 느려짐
   - 예 : OFFSET 100000이면 DB는 10만개를 스캔하고 버려야 함
 - 실시간 데이터(새글, 삭제 등)에는 불안정 - 페이지 밀림 현상 발생 가능
+- 반드시 정렬 기준이 필요하며, 정렬이 없으면 페이지 결과가 달라질 수 있다 !
 
-✅ 2️⃣ 커서 기반 페이징 (Cursor 기반 Paging)
+### ✅ 2️⃣ 커서 기반 페이징 (Cursor 기반 Paging)
 - OFFSET 대신 "마지막으로 조회한 데이터의 기준값(cursor)"을 사용
 - 예를 들어 게시글의 ID가 있다면:
 ```sql
@@ -131,7 +143,7 @@ LIMIT 10;
 - 정렬 기준이 고정되어야 함(보통 id, createdAt 같은 단일 컬럼)
 - 전체 페이지 수나 total count를 구하기 어렵다
 
-### 스프링에서 사용하는 페이징 관련 객체
+## 스프링에서 사용하는 페이징 관련 객체
 - `Pageable` : 페이징 정보를 담는 인터페이스 (page, size, sort 등)
 - `PageRequest` : Pageable의 구현체, PageRequest.of(page, size, sort)로 생성
 - `Page<T>` : 실제 페이징된 결과 객체. 전체 개수(`getTotalElements()`), 전체 페이지 수(`getTotalPages()`)
@@ -143,14 +155,14 @@ LIMIT 10;
   - 하지만 사용자가 페이지 번호로 이동하려면 slice로만으로는 부족함
   - 이때는 Page를 써야함
                 
-- `List<T>` : 페이징 정보 없이 그냥 결과만 반환
+- `List<T>` : 페이징 개념이 없는 단순 결과 반환용 (테스트, 소규모 데이터)
 
 ```java
 // 0번 페이지, 10개씩, 생성일 기준 내림차순
 Pageable pageable = PageRequest.of(0, 10, Sort.by("createdDate").descending());
 ```
 - 컨트롤러에서 `@PageableDefault`를 사용하면 스프링이 내부적으로 `PageRequest`를 만들어서 Pageable로 넘겨줌
-- 서비스에서는 그냥 `Pageable pageable`로 받으면 됨 -> 내부적으로 이미 `PageRequest` 존재
+- 서비스에서는 `Pageable pageable`로 받으면 됨 -> 내부적으로 이미 `PageRequest` 존재
 
 ### 예시 코드 (Spring Data JPA - Offset 기반 페이징)
 ```java
@@ -204,7 +216,8 @@ public ResponseEntity<Page<UserResponse>> getUsers(Pageable pageable) {
 ✅ Slice를 사용하는 CommentRepository
 ```java
 Slice<Comment> findByPostIdOrderByCreatedDateAsc(Long postId, Pageable pageable);
-```
+```  
+
 ✅ Slice를 사용하는 CommentService
 ```java
 public Slice<CommentReadResponse> readAllByPostId(Long postId, int size) {
@@ -212,7 +225,8 @@ public Slice<CommentReadResponse> readAllByPostId(Long postId, int size) {
 		Slice<Comment> slice = commentRepository.findByPostIdOrderByCreatedDateAsc(postId, pageable);
 		return slice.map(this::mapToCommentReadResponse);
 	}
-```
+```  
+
 ✅Slice를 사용하는 CommentController
 ```java
 @GetMapping("/posts/{postId}/comments")
@@ -228,7 +242,6 @@ public Slice<CommentReadResponse> findAllByPostId(
 - 메모리 부담이 적고, 댓글이 많아도 안정적
 
 ### 실제 내 프로젝트에서 사용 예시
-
 ✅ Controller에서의 방법 1 (BoardController)
 ```java
 @GetMapping
@@ -239,7 +252,8 @@ public Page<BoardReadResponse> getAll() {
 ```
 - 수동으로 직접 Pageable 생성
 - 백엔드에서 고정된 정렬 기준으로 직접 코드를 작성
-- 즉 무조건 최신순 또는 이름 오름차순 같은 고정 규칙으로 강제하는 방식 
+- 즉 무조건 최신순 또는 이름 오름차순 같은 고정 규칙으로 강제하는 방식
+
 
 ✅ Controller에서의 방법 2 (BoardController)
 ```java
@@ -249,9 +263,10 @@ public Page<BoardReadResponse> getAll() {
 	}
 ```
 - 요청 파라미터로 정렬 제어 (더 실전적 방식)
-- 요청 파라미터는 프론트엔드 (API 호출자)가 작성
+- 요청 파라미터는 프론트엔드 (API 호출자)가 작성  
 
-✅ Controller에서의 방법 2 (PostController)
+
+✅ Controller에서의 방법 3 (PostController)
 ```java
 @GetMapping
 	public Page<PostReadResponse> getAllPosts(
@@ -264,7 +279,7 @@ public Page<BoardReadResponse> getAll() {
 - pageable 자동 주입 때문에 몇페이지 몇개 글을 가져올 지 알아서 됨
 - GET /posts?page=0&size=10 이 요청이 들어오면 Spring이 자동으로 Pageable pageable = PageRequest.of(0, 10);로 만들어줌
 - `@PageableDefualt`를 사용해주는 것이 안전장치 + 기본 UX를 보장할 수 있음
-  - 개발자가 의도한대로 사용되게 할 수 있음
+  - 개발자가 의도한대로 사용되게 할 수 있음  
 
 
 ### 참고
@@ -295,7 +310,7 @@ public Page<BoardReadResponse> getAll() {
 차이는 "페이징 기준"이 무엇이냐에 있음
 
 ### ✅ 1️⃣ Slice — “페이지 단위 기반” 페이징
-- 여전히 offset 기분 페이징
+- 여전히 offset 기반 페이징
 - Spring Data JPA에서 SliceRequest는 내부적으로 LIMIT ?, OFFSET ? 을 사용
 - 다만 Page 처럼 count 쿼리를 날리지 않고, "다음 페이지가 있는지만" 판단하기 위해 size +1개를 조회하는 방식
 
@@ -317,12 +332,13 @@ WHERE id < :lastId
 ORDER BY id DESC
 LIMIT :size;
 ```
-- 이건 DB가 앞에서부터 세지 ㅇ낳아도 되니까 훨씬 빠르고 정확
-- Cursor 방식은 보통 대규모 데이터셋이나 실시간 피드형 앱(인스타, 유튜브...)에서 사용
-
+- DB가 앞에서 부터 데이터를 스캔하지 않아도 되기 때문에 훨씬 빠르고 정확하다
+- Cursor 방식은 보통 대규모 데이터셋이나 실시간 피드형 앱(인스타, 유튜브...)에서 사용  
 
 - "Slice도 무한 스크롤용이긴 한데, Cursor가 더 최적화된 버전이다"
 - 댓글이나 게시판 목록처럼 "페이지 단위"로 나누는건 Slice
-- 인스타처럼 계속 이어지는 피드형 구조는 Cursor
+- 인스타처럼 계속 이어지는 피드형 구조는 Cursor  
 
-
+### 📚마무리  
+페이징은 단순히 데이터를 나누는 기술이 아니라,  
+데이터 규모와 UX에 따라 Page, Slice, Cursor를 선택하는 설계 문제다. 

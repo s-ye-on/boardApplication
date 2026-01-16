@@ -26,7 +26,7 @@ public class Board extends BaseEntity {
 
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false)
-	Type type; // 게시판 종류
+	private Type type; // 게시판 종류
 
 	// 다양한 기능을 가진 게시판을 만드려면 (공지사항, 자유게시판 등등)
 	// 단일 Board 엔티티 + inner class (enum class)로 type 넣기

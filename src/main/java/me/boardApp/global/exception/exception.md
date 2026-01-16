@@ -20,10 +20,16 @@
 
 ### ApiExceptionHandler
 
-- `@ResControllerAdvice`는 전역 예외 처리를 담당
+- `@RestControllerAdvice`는 전역 예외 처리를 담당
 - `@ExceptionHandler`로 각 예외 타입별로 핸들링
 - `ResponseEntity`로 적절한 HTTP 상태코드 + 메시지 반환
 - `ConstraintViolationException`, `MethodArgumentNotValidException`은 주로 @Valid 검증 실패 시 발생
+
+| 상황                                       | 실제 예외                           |
+|------------------------------------------|---------------------------------|
+| @RequestBody + @Valid                    | MethodArgumentNotValidException |
+| @PathVariable, @RequestPara + validation | ConstraintViolationException    |
+
 - 마지막 `RuntimeException` 핸들러는 catch-all, 즉 처리되지 않은 예외를 잡아서 500 반환
 - 어디서 사용한다고 등록하지 않아도 자동으로 동작
     

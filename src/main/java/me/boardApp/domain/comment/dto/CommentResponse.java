@@ -3,13 +3,14 @@ package me.boardApp.domain.comment.dto;
 import java.time.LocalDateTime;
 
 public sealed interface CommentResponse
-	permits CommentResponse.Create, CommentResponse.Read, CommentResponse.Update{
+	permits CommentResponse.Create, CommentResponse.Read, CommentResponse.Update {
 	record Create(
 		Long id,
 		String writer,
 		String comment,
 		LocalDateTime createTime
-	) implements CommentResponse{}
+	) implements CommentResponse {
+	}
 
 	record Read(
 		Long id,
@@ -17,7 +18,8 @@ public sealed interface CommentResponse
 		String comment,
 		LocalDateTime createTime,
 		LocalDateTime updateTime
-	) implements CommentResponse{}
+	) implements CommentResponse {
+	}
 
 	record Update(
 		Long id,
@@ -25,5 +27,6 @@ public sealed interface CommentResponse
 		String comment,
 		LocalDateTime createTime,
 		LocalDateTime updateTime
-	) implements CommentResponse{}
+	) implements CommentResponse {
+	}
 }

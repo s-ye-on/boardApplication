@@ -6,12 +6,15 @@ import me.boardApp.domain.board.BoardRepository;
 import me.boardApp.domain.user.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
 @Transactional
 public class UserRepositoryTest {
+	@Autowired
 	private BoardRepository boardRepository;
+	@Autowired
 	private UserRepository userRepository;
 
 	private Long testBoardId;

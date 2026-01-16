@@ -1,7 +1,7 @@
 package me.boardApp.global.exception;
 
 public class CommentException extends ApiException {
-	public CommentException(ExceptionCode code){
+	public CommentException(ExceptionCode code) {
 		super(code);
 	}
 

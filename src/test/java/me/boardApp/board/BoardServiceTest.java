@@ -2,10 +2,8 @@ package me.boardApp.board;
 
 import jakarta.transaction.Transactional;
 import me.boardApp.domain.board.Board;
-import me.boardApp.domain.board.dto.BoardCreateResponse;
-import me.boardApp.domain.board.dto.BoardReadResponse;
-import me.boardApp.domain.board.dto.BoardUpdateResponse;
 import me.boardApp.domain.board.BoardRepository;
+import me.boardApp.domain.board.dto.BoardResponse;
 import me.boardApp.domain.board.service.BoardService;
 import me.boardApp.global.dto.request.BoardRequest;
 import me.boardApp.global.exception.BoardException;
@@ -14,7 +12,8 @@ import me.boardApp.domain.post.Post;
 import me.boardApp.domain.post.PostRepository;
 import me.boardApp.domain.user.User;
 import me.boardApp.domain.user.UserRepository;
-import org.hibernate.query.Page;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,7 +27,6 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @SpringBootTest
 @Transactional
@@ -46,22 +44,24 @@ class BoardServiceTest {
 
 	@Autowired
 	private UserRepository userRepository;
+	@PersistenceContext
+	private EntityManager entityManager;
 
 	@BeforeEach
-	void 유저_생성(){
+	void 유저_생성() {
 		user = new User("최승연", "얍얍", "1234", "csy03178@naver.com");
-		userRepository.save(user);
+		userRepository.saveAndFlush(user);
 	}
 
 	@Test
 	void 게시판_생성_성공() {
 		BoardRequest.Create createRequest = new BoardRequest.Create("테스트 게시판", "테스트 용", Board.Type.TEST);
-		BoardCreateResponse boardCreate = boardService.create(createRequest);
+		BoardResponse.Create boardCreate = boardService.create(createRequest);
 		Board target = boardRepository.findById(boardCreate.id()).orElseThrow(() -> new IllegalStateException("테스트 게시판이 db에 존재하지 않습니다"));
 
-		assertThat(boardCreate).extracting(BoardCreateResponse::id,
-				BoardCreateResponse::name,
-				BoardCreateResponse::description)
+		assertThat(boardCreate).extracting(BoardResponse.Create::id,
+				BoardResponse.Create::name,
+				BoardResponse.Create::description)
 			.containsExactly(target.getId(), target.getName(), target.getDescription());
 	}
 
@@ -93,14 +93,16 @@ class BoardServiceTest {
 	void 게시판_id로_읽기_성공() {
 		//given
 		BoardRequest.Create createRequest = new BoardRequest.Create("테스트 게시판", "테스트 용", Board.Type.TEST);
-		BoardCreateResponse createResponse = boardService.create(createRequest);
+		BoardResponse.Create createResponse = boardService.create(createRequest);
 
 		//when
-		BoardReadResponse boardReadResponse = boardService.readById(createResponse.id());
+		BoardResponse.Read boardReadResponse = boardService.readById(createResponse.id());
 
 		//then
 		assertThat(boardReadResponse)
-			.extracting(BoardReadResponse::id, BoardReadResponse::name, BoardReadResponse::description)
+			.extracting(BoardResponse.Read::id,
+				BoardResponse.Read::name,
+				BoardResponse.Read::description)
 			.containsExactly(createResponse.id(), createResponse.name(), createResponse.description());
 	}
 
@@ -113,23 +115,23 @@ class BoardServiceTest {
 		// 아무 아이디 입력
 
 		//then
-		assertThrows(IllegalArgumentException.class, () -> {
-			boardService.readById(123123L);
-		});
+		assertThatThrownBy(() -> boardService.readById(123123L))
+			.isInstanceOf(BoardException.class)
+			.hasMessageContaining(ExceptionCode.NOT_FOUND_BOARD.getMessage());
 	}
 
 	@Test
 	void 게시판_이름으로_읽기_성공() {
 		//given
 		BoardRequest.Create createRequest = new BoardRequest.Create("테스트 게시판", "테스트 용", Board.Type.TEST);
-		BoardCreateResponse createResponse = boardService.create(createRequest);
+		BoardResponse.Create createResponse = boardService.create(createRequest);
 
 		//when
-		BoardReadResponse boardReadResponse = boardService.readByName("테스트 게시판");
+		BoardResponse.Read boardReadResponse = boardService.readByName("테스트 게시판");
 
 		//then
 
-		assertThat(boardReadResponse).extracting(BoardReadResponse::id)
+		assertThat(boardReadResponse).extracting(BoardResponse.Read::id)
 			.isEqualTo(createResponse.id());
 	}
 
@@ -154,9 +156,9 @@ class BoardServiceTest {
 		BoardRequest.Create createRequest2 = new BoardRequest.Create("테스트 게시판2", "테스트 용", Board.Type.FREE);
 		BoardRequest.Create createRequest3 = new BoardRequest.Create("테스트 게시판3", "테스트 용", Board.Type.TEST);
 
-		BoardCreateResponse createResponse1 = boardService.create(createRequest1);
-		BoardCreateResponse createResponse2 = boardService.create(createRequest2);
-		BoardCreateResponse createResponse3 = boardService.create(createRequest3);
+		BoardResponse.Create createResponse1 = boardService.create(createRequest1);
+		BoardResponse.Create createResponse2 = boardService.create(createRequest2);
+		BoardResponse.Create createResponse3 = boardService.create(createRequest3);
 
 		Board tempBoard = boardRepository.findByType(Board.Type.TEMPORARY).orElseThrow();
 		Pageable pageable = PageRequest.of(0, 10, Sort.by("name").ascending());
@@ -172,22 +174,22 @@ class BoardServiceTest {
 	void 게시판_수정_성공() {
 		//given
 		BoardRequest.Create createRequest = new BoardRequest.Create("테스트 게시판", "테스트 용", Board.Type.TEST);
-		BoardCreateResponse createResponse = boardService.create(createRequest);
+		BoardResponse.Create createResponse = boardService.create(createRequest);
 
 		//when
 		BoardRequest.Update updateRequest = new BoardRequest.Update("(수정) 테스트 게시판", "수정 테스트");
-		BoardUpdateResponse update = boardService.updateBoard(createResponse.id(), updateRequest);
+		BoardResponse.Update update = boardService.updateBoard(createResponse.id(), updateRequest);
 
 		//then
 		assertThat(update)
-			.extracting(BoardUpdateResponse::name, BoardUpdateResponse::description)
+			.extracting(BoardResponse.Update::name, BoardResponse.Update::description)
 			.containsExactly(updateRequest.name(), updateRequest.description());
 	}
 
 	@Test
 	void 게시판_수정_실패() {
 		BoardRequest.Create createRequest = new BoardRequest.Create("테스트 게시판", "테스트 용", Board.Type.TEST);
-		BoardCreateResponse createResponse = boardService.create(createRequest);
+		BoardResponse.Create createResponse = boardService.create(createRequest);
 
 		BoardRequest.Update updateRequest = new BoardRequest.Update("(수정) 테스트 게시판", "수정 실패");
 
@@ -215,7 +217,7 @@ class BoardServiceTest {
 	void 일반게시판_삭제_성공() {
 		//given
 		BoardRequest.Create createRequest = new BoardRequest.Create("테스트 게시판", "테스트용", Board.Type.TEST);
-		BoardCreateResponse testCreate = boardService.create(createRequest);
+		BoardResponse.Create testCreate = boardService.create(createRequest);
 
 		//when
 		boardService.delete(testCreate.id());
@@ -228,7 +230,7 @@ class BoardServiceTest {
 	void 일반게시판_삭제_실패() {
 		//given
 		BoardRequest.Create createRequest = new BoardRequest.Create("테스트 게시판", "테스트용", Board.Type.TEST);
-		BoardCreateResponse testCreate = boardService.create(createRequest);
+		BoardResponse.Create testCreate = boardService.create(createRequest);
 
 //		assertThrows(IllegalArgumentException.class, () -> boardService.delete(1234L));
 	}
@@ -237,30 +239,42 @@ class BoardServiceTest {
 	void 게시판_삭제후_게시글_임시게시판_이동_성공() {
 		//given
 		BoardRequest.Create createRequest = new BoardRequest.Create("테스트 게시판", "테스트용", Board.Type.TEST);
-		BoardCreateResponse createResponse = boardService.create(createRequest);
+		BoardResponse.Create createResponse = boardService.create(createRequest);
 
 		Board testBoard = boardRepository.findById(createResponse.id()).orElseThrow(() -> new IllegalArgumentException("게시판 생성 x"));
 		boardRepository.saveAndFlush(testBoard);
 		Post testPost = new Post(testBoard, user, "테스트글", "테스트 글 입니다");
 		//testBoard.posted(testPost);
 		postRepository.saveAndFlush(testPost);
+		// bulk update 전에 영속성 컨텍스트에서 분리해서 stale 참조 방지
+		entityManager.clear();
 
 		//when
-//		boardService.delete(deleteRequest);
-		postRepository.flush();
+		boardService.delete(createResponse.id());
+
+		/*
+		BoardService.delete() 내부에서 postService.migrate()가 JPQL bulk update를 써서 게시글의 board_id를 바꿈
+  - 이런 bulk update는 영속성 컨텍스트를 우회하니까, 이미 메모리에 올라온 Post 엔티티들이 이전 board를 계속 들고 있는 상태가 됨
+  - 그래서 테스트에서 바로 조회/검증하면 DB 값과 1차 캐시 상태가 어긋나서 실패할 수 있음
+  - entityManager.clear()는 1차 캐시를 비워서 DB 상태를 다시 읽게 만드는 용도
+		 */
+		entityManager.flush();
+		// bulk update 이후 DB 상태 기준으로 검증하기 위해 flush/clear
+		entityManager.clear();
+		Pageable pageable = PageRequest.of(0, 30, Sort.by("createdDate").descending());
 
 		// extracting 객체에서 원하는 값만 추출 후 contains로 원래 게시판 id를 포함하나 확인
 		//then
 		Board tempBoard = boardRepository.findByType(Board.Type.TEMPORARY).orElseThrow();
 
-		List<Post> posts = postRepository.findAllByBoardId(tempBoard.getId());
+		List<Post> posts = postRepository.findAllByBoardId(tempBoard.getId(), pageable).getContent();
 		assertThat(posts)
 			.extracting(Post::getBoard)
 			.extracting(Board::getId)
 			.allMatch(id -> id.equals(tempBoard.getId()));
 
 		// 원본 게시판에 있는 글들이 아직 남아 있나 한 번 더 확인
-		List<Post> testBoardsPosts = postRepository.findAllByBoardId(testBoard.getId());
+		List<Post> testBoardsPosts = postRepository.findAllByBoardId(testBoard.getId(), pageable).getContent();
 		assertThat(testBoardsPosts).isEmpty();
 	}
 
@@ -316,11 +330,22 @@ class BoardServiceTest {
 		postRepository.save(post1);
 		postRepository.save(post2);
 		postRepository.flush();
+		// bulk update 전에 영속성 컨텍스트에서 분리
+		entityManager.clear();
 
 		// when: 게시판 삭제
 
-//		boardService.delete(request);
-		boardRepository.flush();
+		boardService.delete(boardToDelete.getId());
+		/*
+		BoardService.delete() 내부에서 postService.migrate()가 JPQL bulk update를 써서 게시글의 board_id를 바꿈
+  - 이런 bulk update는 영속성 컨텍스트를 우회하니까, 이미 메모리에 올라온 Post 엔티티들이 이전 board를 계속 들고 있는 상태가 됨
+  - 그래서 테스트에서 바로 조회/검증하면 DB 값과 1차 캐시 상태가 어긋나서 실패할 수 있음
+  - entityManager.clear()는 1차 캐시를 비워서 DB 상태를 다시 읽게 만드는 용도
+  여기도 마찬가지로 clear를 통해 메모리를 비우고 db 상태를 다시 읽게 만들어서 테스트 해야 삭제 후 임시 게시판 id로 게시글들이 바뀜
+		 */
+		entityManager.flush();
+		// bulk update 이후 DB 기준으로 다시 읽기
+		entityManager.clear();
 
 		Board tempBoard = boardRepository.findByType(Board.Type.TEMPORARY).orElseThrow();
 

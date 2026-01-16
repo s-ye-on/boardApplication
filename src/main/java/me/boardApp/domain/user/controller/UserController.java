@@ -5,6 +5,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import me.boardApp.domain.post.dto.PostResponse;
 import me.boardApp.domain.post.service.PostService;
+import me.boardApp.domain.user.CustomUserDetails;
 import me.boardApp.domain.user.dto.UserResponse;
 import me.boardApp.global.dto.request.UserRequest;
 import me.boardApp.domain.user.service.UserService;
@@ -15,6 +16,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 
@@ -69,28 +72,36 @@ public class UserController {
 
 	@GetMapping("/{userNickname}/posts")
 	public Page<PostResponse.Read> getUserPosts(@PathVariable String userNickname,
-																						 @PageableDefault(size= 10, sort = "createdDate", direction = Sort.Direction.DESC)
-																						 Pageable pageable) {
+																							@PageableDefault(size = 10, sort = "createdDate", direction = Sort.Direction.DESC)
+																							Pageable pageable) {
 		return postService.readByWriter(userNickname, pageable);
 	}
 
+	@PreAuthorize("hasRole('USER')")
 	@PatchMapping("/nickname")
-	public void updateNickname(@RequestBody @Valid UserRequest.UpdateNickname request) {
-		userService.updateNickname(request);
+	public void updateNickname(@RequestBody @Valid UserRequest.UpdateNickname request,
+														 @AuthenticationPrincipal CustomUserDetails userDetails) {
+		userService.updateNickname(request, userDetails.getId());
 	}
 
+	@PreAuthorize("hasRole('USER')")
 	@PatchMapping("/password")
-	public void updatePassword(@RequestBody @Valid UserRequest.UpdatePassword request) {
-		userService.updatePassword(request);
+	public void updatePassword(@RequestBody @Valid UserRequest.UpdatePassword request,
+														 @AuthenticationPrincipal CustomUserDetails userDetails) {
+		userService.updatePassword(request, userDetails.getId());
 	}
 
+	@PreAuthorize("hasRole('USER')")
 	@PatchMapping("/email")
-	public void updateEmail(@RequestBody @Valid UserRequest.UpdateEmail request) {
-		userService.updateEmail(request);
+	public void updateEmail(@RequestBody @Valid UserRequest.UpdateEmail request,
+													@AuthenticationPrincipal CustomUserDetails userDetails) {
+		userService.updateEmail(request, userDetails.getId());
 	}
 
+	@PreAuthorize("hasRole('USER')")
 	@DeleteMapping("/delete")
-	public void delete(@RequestBody @Valid UserRequest.Delete request) {
-		userService.delete(request);
+	public void deleteMe(@RequestBody @Valid UserRequest.Delete request,
+											 @AuthenticationPrincipal CustomUserDetails userDetails) {
+		userService.delete(request, userDetails.getId());
 	}
 }

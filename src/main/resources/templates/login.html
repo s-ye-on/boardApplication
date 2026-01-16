@@ -1,44 +1,196 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>로그인</title>
+
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 420px;
+            border: 1px solid #E5E5E5;
+            padding: 35px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 25px;
+            color: #03c75a;
+        }
+
+        .form-group {
+            margin-bottom: 14px;
+        }
+
+        input[type="email"], input[type="password"], input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #dadada;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        input:focus {
+            border-color: #03c75a;
+            outline: none;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            background-color: #03c75a;
+            color: white;
+            font-size: 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        .error {
+            color: red;
+            font-size: 13px;
+            margin-top: 6px;
+            text-align: center;
+        }
+
+        hr {
+            margin: 25px 0;
+            border: none;
+            border-top: 1px solid #dadada;
+        }
+
+        .link-area {
+            font-size: 13px;
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        .link-area > span {
+            cursor: pointer;
+            color: #555;
+        }
+
+        /* 숨김처리 탭 UI */
+        .hidden { display: none; }
+    </style>
 </head>
 <body>
-<h1>로그인</h1>
 
-<form method="post" action="/login">
-    <div>
-        <label>닉네임(아이디):
-            <input type="text" name="username"/>
-        </label>
-    </div>
-    <div>
-        <label>비밀번호:
-            <input type="password" name="password"/>
-        </label>
-    </div>
-    <button type="submit">로그인</button>
-</form>
+<div class="container">
 
-<hr>
+    <h1>LOGIN</h1>
 
-<h2>회원가입</h2>
-<form method="post" action="/users/join-form">
-    <div>
-        <label>이름: <input type="text" name="name"/></label>
+    <!-- 로그인 -->
+    <form id="login-form">
+        <div class="form-group">
+            <input type="email" name="email" placeholder="이메일 입력" required />
+        </div>
+        <div class="form-group">
+            <input type="password" name="password" placeholder="비밀번호 입력" required />
+        </div>
+
+        <button type="submit" class="btn">로그인</button>
+        <p id="login-error" class="error"></p>
+    </form>
+
+    <div class="link-area">
+        아직 계정이 없나요? 👉 <span id="open-join">회원가입</span>
     </div>
-    <div>
-        <label>닉네임: <input type="text" name="nickName"/></label>
-    </div>
-    <div>
-        <label>이메일: <input type="email" name="email"/></label>
-    </div>
-    <div>
-        <label>비밀번호: <input type="password" name="password"/></label>
-    </div>
-    <button type="submit">회원가입</button>
-</form>
+
+    <hr>
+
+    <!-- 회원가입 -->
+    <form id="join-form" method="post" action="/users/join-form" class="hidden">
+        <div class="form-group">
+            <input type="text" name="realName" placeholder="이름" required />
+        </div>
+        <div class="form-group">
+            <input type="text" name="nickName" placeholder="닉네임" required />
+        </div>
+        <div class="form-group">
+            <input type="email" name="email" placeholder="이메일" required />
+        </div>
+        <div class="form-group">
+            <input type="password" name="password" placeholder="비밀번호" required />
+        </div>
+
+        <button type="submit" class="btn">회원가입</button>
+        <div class="link-area">
+            이미 계정이 있나요? 👉 <span id="open-login">로그인</span>
+        </div>
+    </form>
+
+</div>
+
+<script>
+
+    // 화면 전환
+    const loginForm = document.getElementById("login-form");
+    const joinForm = document.getElementById("join-form");
+    document.getElementById("open-join").addEventListener("click", () => {
+        loginForm.classList.add("hidden");
+        joinForm.classList.remove("hidden");
+    });
+
+    document.getElementById("open-login").addEventListener("click", () => {
+        joinForm.classList.add("hidden");
+        loginForm.classList.remove("hidden");
+    });
+
+
+    // 로그인 JWT 처리
+    loginForm.addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        const form = e.target;
+        const email = form.email.value;
+        const password = form.password.value;
+        const errorEl = document.getElementById('login-error');
+        errorEl.textContent = '';
+
+        try {
+            const res = await fetch('/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+
+            if (!res.ok) {
+                const text = await res.text();
+                errorEl.textContent = '❌ 로그인 실패: ' + text;
+                return;
+            }
+
+            const data = await res.json();
+            localStorage.setItem("accessToken", data.accessToken);
+
+            alert("🎉 로그인 성공!");
+            window.location.href = '/boards.html';
+
+        } catch (err) {
+            errorEl.textContent = '⚠️ 로그인 중 문제가 발생했습니다.';
+        }
+    });
+
+</script>
 
 </body>
 </html>

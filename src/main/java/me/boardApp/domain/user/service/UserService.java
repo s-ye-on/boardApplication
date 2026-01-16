@@ -3,6 +3,8 @@ package me.boardApp.domain.user.service;
 import jakarta.servlet.http.HttpSession;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import me.boardApp.auth.token.RefreshTokenRepository;
 import me.boardApp.domain.user.dto.UserResponse;
 import me.boardApp.global.response.SuccessMessage;
 import me.boardApp.global.exception.CommentException;
@@ -14,21 +16,25 @@ import me.boardApp.domain.user.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Transactional
 @Service
 @RequiredArgsConstructor
 public class UserService {
 	private final UserRepository userRepository;
 	private final PasswordEncoder passwordEncoder;
+	private final RefreshTokenRepository refreshTokenRepository;
+
 	/// todo : user response 만들기
 	/// 지금은 user 엔티티 자체를 반환해서 비밀번호나 개인정보가 보여질 위험이 있음
+	/// 이거 사실 userDetails로 반환하면 되지 않나?
 
 	public void join(UserRequest.Create request) {
 		// 가입 이력 여부 확인
 		// 중복 계정 여부 확인
 		/// todo : 나중에 이 부분 커스텀 어노테이션 만들어보기
 		///  @UniqueNickname만들어서 dto에 붙이면 검증 로직이 dto쪽에서 알아서 해줌
-		if(userRepository.existsByNickname(request.nickName())){
+		if (userRepository.existsByNickname(request.nickName())) {
 			throw new UserException(ExceptionCode.DUPLICATE_NICKNAME);
 		}
 
@@ -36,7 +42,7 @@ public class UserService {
 		String encodedPassword = passwordEncoder.encode(request.password());
 
 		User user = new User(
-			request.name(),
+			request.realName(),
 			request.nickName(),
 			encodedPassword,
 			request.email()
@@ -53,7 +59,7 @@ public class UserService {
 		user.validateRealName(request.realName());
 
 		boolean existNickname = userRepository.findByNickname(request.nickname()).isPresent();
-		if(existNickname) {
+		if (existNickname) {
 			throw new UserException(ExceptionCode.DUPLICATE_NICKNAME);
 		}
 
@@ -63,12 +69,14 @@ public class UserService {
 		user.activate(request.nickname());
 	}
 
+	/// todo : 여기는 아이디를 이메일 형식으로 만들어놨는데, 닉네임을 아이디로 쓰기로 하지 않았나? 하나로 통일해야함
+	/// todo : 여기서 아이디가 틀렸을 경우와 비밀번호가 틀렸을 경우가 예외가 다르게 나가는데 이러면 보안에 취약할 거라 생각 듬
 	public UserResponse.Login login(UserRequest.Login request) {
 		User user = userRepository.findByEmail(request.email())
 			.orElseThrow(() -> new UserException(ExceptionCode.NOT_FOUND_USER));
 
-		if(!passwordEncoder.matches(request.password(), user.getPassword())) {
-			throw(new UserException(ExceptionCode.INVALID_PASSWORD));
+		if (!passwordEncoder.matches(request.password(), user.getPassword())) {
+			throw (new UserException(ExceptionCode.INVALID_PASSWORD));
 		}
 		return new UserResponse.Login(user.getId(), user.getNickname(), SuccessMessage.LOGIN_SUCCESS.getMessage());
 	}
@@ -90,41 +98,60 @@ public class UserService {
 //	public List<Comment> readComments(String nickName) {}
 // -> 내 생각에 게시글이나 댓글에 대한 책임은 각자의 service에서 하는게 맞는 것 같음
 
-	public void updateNickname(UserRequest.UpdateNickname request) {
-		User user = userRepository.findByNickname(request.presentNickname())
-			.orElseThrow(() -> new UserException(ExceptionCode.NOT_FOUND_NICKNAME));
+	public void updateNickname(UserRequest.UpdateNickname request, Long currentUserId) {
+		User currentUser = userRepository.findById(currentUserId)
+			.orElseThrow(() -> new UserException(ExceptionCode.NOT_FOUND_USER));
 
-		userRepository.findByNickname(request.newNickName())
-			.orElseThrow(() -> new UserException(ExceptionCode.DUPLICATE_NICKNAME));
+		//현재 로그인 유저의 비밀번호 검증
+		currentUser.validatePassword(request.password(), passwordEncoder);
 
-		user.validatePassword(request.password(), passwordEncoder);
+		// 현재 닉네임과 바꾸려는 닉네임이 같은지 체크
+		if (currentUser.getNickname().equals(request.newNickName())) {
+			throw new UserException(ExceptionCode.SAME_NICKNAME);
+		}
 
-		user.updateNickname(request.newNickName());
+		// 닉네임 중복 체크
+		if (userRepository.existsByNickname(request.newNickName())) {
+			throw new UserException(ExceptionCode.DUPLICATE_NICKNAME);
+		}
+
+		currentUser.updateNickname(request.newNickName());
 	}
 
-	public void updatePassword(UserRequest.UpdatePassword request) {
-		User user = userRepository.findByNickname(request.nickname())
-			.orElseThrow(() -> new UserException(ExceptionCode.NOT_FOUND_NICKNAME));
+	public void updatePassword(UserRequest.UpdatePassword request, Long currentUserId) {
+		log.info("비밀번호 변경 시도 : userId = {}", currentUserId);
 
-		user.validatePassword(request.presentPassword(), passwordEncoder);
+		User currentUser = userRepository.findById(currentUserId)
+			.orElseThrow(() -> new UserException(ExceptionCode.NOT_FOUND_USER));
+
+		currentUser.validatePassword(request.presentPassword(), passwordEncoder);
 
 		String encodedPassword = passwordEncoder.encode(request.newPassword());
+		currentUser.updatePassword(encodedPassword);
 
-		user.updatePassword(encodedPassword);
+		// 비밀번호 변경 시 전체 세션 파괴 -> 전체 refresh token revoke
+		refreshTokenRepository.revokeAllByUser(currentUser);
+
+		log.info("비밀번호 변경 완료 : userId = {}", currentUserId);
 	}
 
-	public void updateEmail(UserRequest.UpdateEmail request) {
-		User user = userRepository.findByNickname(request.nickname())
-			.orElseThrow(() -> new UserException(ExceptionCode.NOT_FOUND_NICKNAME));
+	public void updateEmail(UserRequest.UpdateEmail request, Long currentUserId) {
+		User user = userRepository.findById(currentUserId)
+			.orElseThrow(() -> new UserException(ExceptionCode.NOT_FOUND_USER));
 
 		user.validatePassword(request.password(), passwordEncoder);
+		/// 나중에 email 중복 체크 넣어줄 수도 있음
 
 		user.updateEmail(request.newEmail());
 	}
 
-	public void delete(UserRequest.Delete request) {
-		User user = userRepository.findByNickname(request.nickname())
-			.orElseThrow(() -> new UserException(ExceptionCode.NOT_FOUND_NICKNAME));
+	///  todo : DB 연관관계 기준으로 보면 단방향으로 바꾸면 User와 Post의 생명 주기는 분리된다
+	/// 하지만 User가 삭제될 때 Post도 같이 삭제하고 싶다는 정책은
+	/// DB cascade로 처리하는게 아니라 Service 레이어에서 명시적으로 처리하는게 더 좋다
+	/// User Post 연관관계 단방향 전환 후 User 삭제 시 Post 삭제되는걸 명시적으로 Service에서 처리해주자
+	public void delete(UserRequest.Delete request, Long currentUserId) {
+		User user = userRepository.findById(currentUserId)
+			.orElseThrow(() -> new UserException(ExceptionCode.NOT_FOUND_USER));
 
 		user.validateDelete(request, passwordEncoder);
 

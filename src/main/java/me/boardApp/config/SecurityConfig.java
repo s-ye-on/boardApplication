@@ -1,18 +1,21 @@
 package me.boardApp.config;
 
+import me.boardApp.auth.jwt.JwtAccessDeniedHandler;
+import me.boardApp.auth.jwt.JwtAuthenticationEntryPoint;
+import me.boardApp.auth.jwt.JwtAuthenticationFilter;
+import me.boardApp.auth.jwt.JwtTokenProvider;
+import me.boardApp.domain.user.UserRepository;
+import me.boardApp.log.ClientContextFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 // 환경설정(Bean 등록)을 담당하는 클래스 이름을 ~config라고 지음
 // @Configuration -> 스프링 설정 클래스임을 알려주는 어노테이션
@@ -25,27 +28,54 @@ public class SecurityConfig {
 		return new BCryptPasswordEncoder();
 	}
 
+	@Bean
+	public JwtAuthenticationFilter jwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider,
+																												 UserRepository userRepository) {
+		return new JwtAuthenticationFilter(jwtTokenProvider, userRepository);
+	}
+
+	@Bean
+	public ClientContextFilter clientContextFilter() {
+		return new ClientContextFilter();
+	}
+
 	// 1. 어떤 URL에 보안 걸지 & 로그인 방식 정의
 	@Bean
-	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+	public SecurityFilterChain securityFilterChain(
+		HttpSecurity http,
+		JwtAuthenticationFilter jwtAuthenticationFilter,
+		JwtAuthenticationEntryPoint authenticationEntryPoint,
+		JwtAccessDeniedHandler accessDeniedHandler
+	) throws Exception {
 		http
-			.csrf(AbstractHttpConfigurer::disable) // 일단 개발/테스트용으로 csrf 끄기
+			.csrf(AbstractHttpConfigurer::disable)
+			.sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+			.formLogin(AbstractHttpConfigurer::disable)
+			.logout(AbstractHttpConfigurer::disable)
+			.exceptionHandling(ex -> ex
+				.authenticationEntryPoint(authenticationEntryPoint) // 인증 안됨 401
+				.accessDeniedHandler(accessDeniedHandler)) // 인증됐지만 권한 없음 403
 			.authorizeHttpRequests(auth -> auth
 				.requestMatchers(
-					"/", "/css/**", "/js/**", "/images/**",
-					"/h2-console/**", "/users/join", // 회원가입 API는 인증 없이 허용
-					"/users/join-form") // 폼 회원가입 처리
-//					"/users/login") // (지금 API용 login도 쓰고 있다면)
-					.permitAll() // 이 URL들은 누구나 접근 가능
-					.anyRequest().authenticated() // 나머지는 로그인 필요
-				)
-			.formLogin(form -> form
-			// 기본 로그인 폼 사용
-				// .loginPage("/login") loginPage 지정 안하면, Spring 기본 로그인 페이지(/login) 자동 제공
-				.loginPage("/login")
-				.defaultSuccessUrl("/boards", true)
-				.permitAll())
-			.logout(Customizer.withDefaults()); // 로그인 성공 시 /boards 로 강제 리다이렉트
+					"/",
+					"/login",      // 로그인 화면
+					"/users/join",    //JSON 회원 가입
+					"/users/join-form",  // 폼 회원 가입
+					"/auth/login",    // JWT 로그인 API
+					"/auth/refresh",  // 리프레시 토큰 재발급은 access 토큰 없이도 호출 가능해야 함(accessToken 만료됐을 확률이 높음)
+					// "/auth/refresh" 외형상 permitAll이지만, 실질적 인증은 refreshToken 검증으로 하고 있는 구조
+					"/boards.html",
+					"/h2-console/**",
+					"/css/**",
+					"/js/**",
+					"/images/**"
+				).permitAll()
+				.anyRequest().authenticated() // 나머지는 전부 인증 필요
+			)
+			// H2 콘솔용 frame 허용/ 개발용이라 다시 닫아줌 frame 허용은 제거하는게 좋다
+//			.headers(headers -> headers.frameOptions(frame -> frame.disable()))
+			.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+			.addFilterBefore(clientContextFilter(), JwtAuthenticationFilter.class);
 
 		return http.build();
 	}

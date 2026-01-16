@@ -8,11 +8,16 @@ import me.boardApp.domain.board.BoardRepository;
 import me.boardApp.domain.post.Post;
 import me.boardApp.domain.post.PostRepository;
 import me.boardApp.domain.user.User;
+import me.boardApp.domain.user.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+
 import java.util.List;
 
 
@@ -25,6 +30,8 @@ public class PostRepositoryTest {
 	private PostRepository postRepository;
 	@Autowired
 	private BoardRepository boardRepository;
+	@Autowired
+	private UserRepository userRepository;
 	private Long testBoardId;
 	private User user;
 
@@ -33,18 +40,20 @@ public class PostRepositoryTest {
 	private EntityManager em; // 영속성 컨텍스트 제어용
 
 	@BeforeEach
-	void 게시판_생성(){
+	void 게시판_생성() {
 		Board testBoard = new Board("테스트 게시판", "테스트용", Board.Type.TEST);
 		boardRepository.save(testBoard);
 		testBoardId = testBoard.getId();
 	}
 
 	@BeforeEach
-	void 유저_생성(){
+	void 유저_생성() {
 		user = new User("최승연", "얍얍", "cs123", "csy03178@naver.com");
+		user = userRepository.save(user);
 	}
+
 	@Test
-	void 게시글_생성_성공(){
+	void 게시글_생성_성공() {
 		// given
 		Board testBoard = boardRepository.findById(testBoardId).orElse(null);
 		Post testPost = new Post(testBoard, user, "테스트글", "테스트글 본문");
@@ -62,10 +71,12 @@ public class PostRepositoryTest {
 
 	@Test
 	@Disabled("수정 후 다시 테스트")
-	void 게시글_저장시_게시판에_저장_성공(){
+	void 게시글_저장시_게시판에_저장_성공() {
 		// given
 		Board testBoard = boardRepository.findById(testBoardId).orElse(null);
 		Post testPost = new Post(testBoard, user, "테스트글", "테스트글 본문");
+		Pageable pageable = PageRequest.of(0, 30, Sort.by("createdDate").descending());
+
 
 		//when
 		postRepository.save(testPost);
@@ -74,14 +85,15 @@ public class PostRepositoryTest {
 
 		//then
 		// 게시글 게시판에 저장됐는지 확인
-		List<Post> posts = postRepository.findAllByBoardId(testBoard.getId());
+		List<Post> posts = postRepository.findAllByBoardId(testBoard.getId(), pageable).getContent();
+
 		assertThat(posts).hasSize(1);
-		assertThat(posts.get(0).getId()).isEqualTo(testPost.getId());
+		assertThat(posts.getFirst().getId()).isEqualTo(testPost.getId());
 
 	}
 
 	@Test
-	void 게시글_Id로_읽기_성공(){
+	void 게시글_Id로_읽기_성공() {
 		//given
 		Board testBoard = boardRepository.findById(testBoardId).orElse(null);
 		Post testPost = new Post(testBoard, user, "테스트글", "본문");
@@ -96,47 +108,58 @@ public class PostRepositoryTest {
 		assertThat(testPost.getId()).isEqualTo(foundPost.getId());
 
 	}
+
 	@Test
-	void 게시글_제목으로_읽기_성공(){
+	void 게시글_제목으로_읽기_성공() {
 		//given
 		Board testBoard = boardRepository.findById(testBoardId).orElse(null);
+
 		Post testPost1 = new Post(testBoard, user, "테스트글", "본문");
 		Post testPost2 = new Post(testBoard, user, "테스트글", "본문");
+
 		postRepository.save(testPost1);
 		//testBoard.posted(testPost1);
 		postRepository.save(testPost2);
 		//testBoard.posted(testPost2);
 
+		Pageable pageable = PageRequest.of(0, 30, Sort.by("createdDate").descending());
+
 		//when
-		List<Post> foundPosts = postRepository.findAllByTitle("테스트글");
+		List<Post> foundPosts = postRepository.findAllByTitle("테스트글", pageable).getContent();
 
 		//then
 		assertThat(foundPosts).hasSize(2);
-		assertThat(foundPosts.get(0).getId()).isEqualTo(testPost1.getId());
-		assertThat(foundPosts.get(1).getId()).isEqualTo(testPost2.getId());
+		assertThat(foundPosts.get(0).getCreatedDate())
+			.isAfterOrEqualTo(foundPosts.get(1).getCreatedDate());
 	}
+
 	@Test
-	void 게시글_게시판Id로_읽기_성공(){
+	void 게시글_게시판Id로_읽기_성공() {
 		//given
 		Board testBoard = boardRepository.findById(testBoardId).orElse(null);
+
 		Post testPost1 = new Post(testBoard, user, "테스트글1", "본문");
 		Post testPost2 = new Post(testBoard, user, "테스트글2", "본문");
+
 		postRepository.save(testPost1);
 		// 연관관계 단방향 전환
 		//testBoard.posted(testPost1);
 		postRepository.save(testPost2);
 		//testBoard.posted(testPost2);
 
+		Pageable pageable = PageRequest.of(0, 30, Sort.by("createdDate").descending());
+
 		//when
-		List<Post> foundPosts = postRepository.findAllByBoardId(testBoard.getId());
+		List<Post> foundPosts = postRepository.findAllByBoardId(testBoard.getId(), pageable).getContent();
 
 		//then
 		assertThat(foundPosts).hasSize(2);
-		assertThat(foundPosts.get(0).getId()).isEqualTo(testPost1.getId());
-		assertThat(foundPosts.get(1).getId()).isEqualTo(testPost2.getId());
+		assertThat(foundPosts.get(0).getCreatedDate())
+			.isAfterOrEqualTo(foundPosts.get(1).getCreatedDate());
 	}
+
 	@Test
-	void 게시글_수정_성공(){
+	void 게시글_수정_성공() {
 		//given
 		Board testBoard = boardRepository.findById(testBoardId).orElse(null);
 		Post testPost = new Post(testBoard, user, "테스트글", "본문");
@@ -152,8 +175,9 @@ public class PostRepositoryTest {
 		assertThat(foundPost.getText()).isEqualTo("수정");
 
 	}
+
 	@Test
-	void 게시글_삭제_성공(){
+	void 게시글_삭제_성공() {
 		//given
 		Board testBoard = boardRepository.findById(testBoardId).orElse(null);
 		Post testPost = new Post(testBoard, user, "테스트글", "본문");
@@ -172,6 +196,8 @@ public class PostRepositoryTest {
 
 		Board foundBoard = boardRepository.findById(testBoard.getId()).orElseThrow();
 
+		Pageable pageable = PageRequest.of(0, 30, Sort.by("createdDate").descending());
+
 		//then
 		//게시글 삭제
 		assertThat(postRepository.existsById(testPost.getId())).isFalse();
@@ -184,8 +210,7 @@ public class PostRepositoryTest {
 		JPA에서 이미 로드된 컬렉션은 DB 삭제와 자동 동기화되지 않는다
 		테스트에서는 DB에서 다시 조회한 객체로 검증하는 게 안전함
 		 */
-		List<Post> foundPosts = postRepository.findAllByBoardId(testBoard.getId());
+		List<Post> foundPosts = postRepository.findAllByBoardId(testBoard.getId(), pageable).getContent();
 		assertThat(foundPosts).hasSize(0);
-
 	}
 }
