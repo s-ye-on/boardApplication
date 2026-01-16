@@ -30,7 +30,6 @@ public class CommentService {
 
 	// Create
 
-	/// todo : comment도 마찬가지로 지금 닉네임 비밀번호만 일치 시키면 타인의 이름으로 글 쓸 수 있음
 	public CommentResponse.Create create(Long postId, CommentRequest.Create request, Long currentUserId) {
 		Post post = commonService.getPostById(postId);
 		post.validateCanAddComment();
@@ -79,7 +78,6 @@ public class CommentService {
 		return toReadResponse(comment);
 	}
 
-	//Slice로 조회
 	public List<CommentResponse.Read> readAllByPostId(Long postId) {
 		// 슬라이스로 사용 시 이렇게 함 근데 이렇게 하면 댓글 더보기 이런 버튼을 눌러야하니 그냥 한눈에 보이게 List 반환하는걸로 만들겠음
 //		Pageable pageable = PageRequest.of(0, size); // 첫 슬라이스, size만큼
