@@ -52,6 +52,9 @@ public class User extends BaseEntity {
 	/// 2번으로 할 경우 user처럼 status를 두면 됨
 	///  이거는 나중에 고민해보고 결정
 
+	// Post-Comment는 같은 생명 주기라 Aggregate 내부라서 양방향,
+	// User는 상태를 가진 독립 엔티티라 Post/Comment와는 단방향으로 수정해보자
+
 	@OneToMany(mappedBy = "user", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
 	private List<Post> posts = new ArrayList<>();
 

@@ -25,6 +25,7 @@ public enum ExceptionCode {
 	USER_VALIDATION_FAILED(HttpStatus.BAD_REQUEST, "사용자 정보가 올바르지 않습니다", null),
 	NOT_LOCKED_ACCOUNT(HttpStatus.BAD_REQUEST, "잠겨 있지 않은 계정입니다", null),
 	INACTIVATION_ACCOUNT(HttpStatus.BAD_REQUEST, "탈퇴한 계정입니다", null),
+	NOT_MATCH_POST_COMMENT(HttpStatus.BAD_REQUEST, "게시글에 해당 댓글이 존재하지 않습니다", null),
 
 	// 401 Unauthorized 인증 필요(로그인 안됨) or 토큰 관련
 	UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "인증이 필요합니다.", null), // 인증 실패의 포괄 개념(fallback으로 처리)

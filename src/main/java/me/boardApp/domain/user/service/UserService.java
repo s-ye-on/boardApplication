@@ -145,6 +145,10 @@ public class UserService {
 		user.updateEmail(request.newEmail());
 	}
 
+	///  todo : DB 연관관계 기준으로 보면 단방향으로 바꾸면 User와 Post의 생명 주기는 분리된다
+	/// 하지만 User가 삭제될 때 Post도 같이 삭제하고 싶다는 정책은
+	/// DB cascade로 처리하는게 아니라 Service 레이어에서 명시적으로 처리하는게 더 좋다
+	/// User Post 연관관계 단방향 전환 후 User 삭제 시 Post 삭제되는걸 명시적으로 Service에서 처리해주자
 	public void delete(UserRequest.Delete request, Long currentUserId) {
 		User user = userRepository.findById(currentUserId)
 			.orElseThrow(() -> new UserException(ExceptionCode.NOT_FOUND_USER));

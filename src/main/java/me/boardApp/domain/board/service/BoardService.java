@@ -120,7 +120,7 @@ public class BoardService {
 	}
 
 	// Delete
-	/// todo : delete도 지금 보면 누구나 게시판을 삭제할 수 있음
+	/// todo : delete도 지금 보면 누구나 게시판을 삭제할 수 있음 -> controller쪽에서 hasRole ADMIN으로 해결
 	public void delete(Long id) {
 		Board target = getById(id);
 

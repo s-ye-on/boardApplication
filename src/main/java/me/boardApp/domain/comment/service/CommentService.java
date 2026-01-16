@@ -105,9 +105,13 @@ public class CommentService {
 	}
 
 	// Update
-	public CommentResponse.Update update(Long commentId, CommentRequest.Update request, Long currentUserId) {
+	public CommentResponse.Update update(Long postId, Long commentId, CommentRequest.Update request, Long currentUserId) {
 		Comment target = commentRepository.findById(commentId)
 			.orElseThrow(() -> new CommentException(ExceptionCode.NOT_FOUND_COMMENT));
+
+		if(!target.getPost().getId().equals(postId)) {
+			throw new CommentException(ExceptionCode.NOT_MATCH_POST_COMMENT);
+		}
 
 		User writer = target.getUser();
 		User currentUser = commonService.getUserById(currentUserId);
